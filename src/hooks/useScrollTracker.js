@@ -1,22 +1,9 @@
-﻿import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import useStore from '../store/useStore';
+import { lerp, getScrollProgress } from '../utils/mathUtils';
 
-const clamp01 = (value) => Math.min(1, Math.max(0, value));
-
-const lerp = (start, end, amount) => start + (end - start) * amount;
-
-const getScrollProgress = () => {
-  const documentElement = document.documentElement;
-  const scrollTop = window.scrollY || documentElement.scrollTop || 0;
-  const scrollHeight = Math.max(
-    documentElement.scrollHeight,
-    document.body?.scrollHeight || 0,
-  );
-  const viewportHeight = window.innerHeight || documentElement.clientHeight || 1;
-  const maxScroll = Math.max(scrollHeight - viewportHeight, 1);
-
-  return clamp01(scrollTop / maxScroll);
-};
+const LERP_FACTOR = 0.14; // Tune scroll lag here — lower = more cinematic trail.
+const SNAP_THRESHOLD = 0.001; // RAF loop stops when delta is below this.
 
 export default function useScrollTracker() {
   const setScrollProgress = useStore((state) => state.setScrollProgress);
@@ -47,28 +34,27 @@ export default function useScrollTracker() {
       const target = targetRef.current;
       const delta = Math.abs(target - current);
 
-      if (delta < 0.001) {
+      if (delta < SNAP_THRESHOLD) {
         progressRef.current = target;
         setScrollProgress(target);
         stopLoop();
         return;
       }
 
-      progressRef.current = lerp(current, target, 0.14);
+      // lerp is a pure function from mathUtils — no dependency on React state.
+      progressRef.current = lerp(current, target, LERP_FACTOR);
       setScrollProgress(progressRef.current);
       frameRef.current = window.requestAnimationFrame(tick);
     };
 
     const startLoop = () => {
-      if (runningRef.current) {
-        return;
-      }
-
+      if (runningRef.current) return;
       runningRef.current = true;
       frameRef.current = window.requestAnimationFrame(tick);
     };
 
     const onScroll = () => {
+      // getScrollProgress is a pure DOM read from mathUtils.
       targetRef.current = getScrollProgress();
       startLoop();
     };
@@ -80,6 +66,7 @@ export default function useScrollTracker() {
       stopLoop();
     };
 
+    // Sync immediately on mount.
     targetRef.current = getScrollProgress();
     progressRef.current = targetRef.current;
     setScrollProgress(targetRef.current);

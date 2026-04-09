@@ -1,15 +1,12 @@
-﻿import { useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef, useState } from 'react';
 import useStore from '../store/useStore';
+import { getZIndex } from '../utils/mathUtils';
+import SkillNodes from './SkillNodes';
 
 const STOP_SPACING_Z = 50;
 
 const getDataKey = (sourceType) => (sourceType === 'project' ? 'projects' : sourceType);
-
-const getZIndex = (stop, fallback = 0) => {
-  const parsed = Number(stop?.z_index);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
 
 const resolveRecord = (projectData, stop) => {
   const dataKey = getDataKey(stop?.source_type);
@@ -19,35 +16,23 @@ const resolveRecord = (projectData, stop) => {
 
 const getColor = (stop, record) => {
   const label = String(stop?.label || record?.title || record?.organization || '').toLowerCase();
-
-  if (stop?.source_type === 'project') {
-    return '#FF7582';
-  }
-
-  if (stop?.source_type === 'creative' || label.includes('cucek')) {
-    return '#C56C86';
-  }
-
+  if (stop?.source_type === 'project') return '#FF7582';
+  if (stop?.source_type === 'creative' || label.includes('cucek')) return '#C56C86';
   return '#725A7A';
 };
 
 const getMeshType = (stop) => {
-  if (stop?.type === 'major_milestone') {
-    return 'dodecahedron';
-  }
-
-  if (stop?.source_type === 'project') {
-    return 'icosahedron';
-  }
-
-  if (stop?.source_type === 'creative') {
-    return 'torus';
-  }
-
+  if (stop?.type === 'major_milestone') return 'dodecahedron';
+  if (stop?.source_type === 'project') return 'icosahedron';
+  if (stop?.source_type === 'creative') return 'torus';
   return 'box';
 };
 
-function TimelineStopMesh({ stop, index, record }) {
+// ---------------------------------------------------------------------------
+// TimelineStopMesh — one 3D milestone object.
+// quality.ringSegments controls orbit ring & halo detail.
+// ---------------------------------------------------------------------------
+function TimelineStopMesh({ stop, index, record, quality }) {
   const groupRef = useRef();
   const ringRef = useRef();
   const accentRef = useRef();
@@ -62,6 +47,10 @@ function TimelineStopMesh({ stop, index, record }) {
     const z = getZIndex(stop, index) * -STOP_SPACING_Z;
     return [x, y, z];
   }, [index, stop]);
+
+  // Derive segment counts from the quality profile.
+  // ring/halo use ringSegments; accent icosahedron detail is always 0 (low-poly by design).
+  const seg = quality.ringSegments;
 
   useFrame(({ clock }) => {
     const elapsed = clock.getElapsedTime();
@@ -94,10 +83,15 @@ function TimelineStopMesh({ stop, index, record }) {
 
   return (
     <group ref={groupRef} position={position}>
-      <mesh castShadow receiveShadow onPointerOver={() => setIsHovered(true)} onPointerOut={() => setIsHovered(false)}>
+      <mesh
+        castShadow
+        receiveShadow
+        onPointerOver={() => setIsHovered(true)}
+        onPointerOut={() => setIsHovered(false)}
+      >
         {meshType === 'icosahedron' ? <icosahedronGeometry args={[3, 1]} /> : null}
         {meshType === 'box' ? <boxGeometry args={[4, 4, 4]} /> : null}
-        {meshType === 'torus' ? <torusGeometry args={[2.8, 0.85, 24, 80]} /> : null}
+        {meshType === 'torus' ? <torusGeometry args={[2.8, 0.85, Math.max(8, seg / 4), seg]} /> : null}
         {meshType === 'dodecahedron' ? <dodecahedronGeometry args={[3.1, 0]} /> : null}
         <meshStandardMaterial
           color={color}
@@ -122,12 +116,12 @@ function TimelineStopMesh({ stop, index, record }) {
       </mesh>
 
       <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[3.6, 4.4, 64]} />
+        <ringGeometry args={[3.6, 4.4, seg]} />
         <meshBasicMaterial color={color} transparent opacity={isHovered ? 0.4 : 0.24} />
       </mesh>
 
       <mesh ref={haloRef}>
-        <torusGeometry args={[4.9, 0.2, 20, 64]} />
+        <torusGeometry args={[4.9, 0.2, Math.max(8, seg / 4), seg]} />
         <meshBasicMaterial color={color} transparent opacity={isHovered ? 0.3 : 0.12} />
       </mesh>
 
@@ -139,7 +133,10 @@ function TimelineStopMesh({ stop, index, record }) {
   );
 }
 
-export default function TimelineStops() {
+// ---------------------------------------------------------------------------
+// TimelineStops — renders all stops from the store in z_index order.
+// ---------------------------------------------------------------------------
+export default function TimelineStops({ quality }) {
   const projectData = useStore((state) => state.projectData);
   const rawStops = projectData?.timeline_stops || [];
 
@@ -150,9 +147,32 @@ export default function TimelineStops() {
 
   return (
     <group>
-      {stops.map((stop, index) => (
-        <TimelineStopMesh key={stop.id || `${stop.source_id}-${index}`} stop={stop} index={index} record={resolveRecord(projectData, stop)} />
-      ))}
+      {stops.map((stop, index) => {
+        const isSkillsStop = stop.id === 'stop-skills' || stop.source_type === 'skills';
+
+        if (isSkillsStop) {
+          const position = [
+            index % 2 === 0 ? -5.5 : 5.5,
+            (index % 3) * 0.85 - 0.85,
+            getZIndex(stop, index) * -STOP_SPACING_Z,
+          ];
+          return (
+            <group key={stop.id || `skills-${index}`} position={position}>
+              <SkillNodes />
+            </group>
+          );
+        }
+
+        return (
+          <TimelineStopMesh
+            key={stop.id || `${stop.source_id}-${index}`}
+            stop={stop}
+            index={index}
+            record={resolveRecord(projectData, stop)}
+            quality={quality}
+          />
+        );
+      })}
     </group>
   );
 }

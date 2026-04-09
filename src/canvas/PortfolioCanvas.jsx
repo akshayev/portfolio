@@ -1,21 +1,35 @@
-﻿import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import gsap from 'gsap';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import TimelineStops from './TimelineStops';
 import useStore from '../store/useStore';
+import { clamp01, getZIndex } from '../utils/mathUtils';
 
-const DESKTOP_STAR_COUNT = 900;
-const MOBILE_STAR_COUNT = 300;
 const STOP_SPACING_Z = 50;
 const CAMERA_START_Z = 14;
 const CAMERA_END_PADDING = 28;
 const FOCUS_RANGE = 24;
 
-const clamp01 = (value) => Math.min(1, Math.max(0, value));
-
-const getZIndex = (stop, fallback = 0) => {
-  const parsed = Number(stop?.z_index);
-  return Number.isFinite(parsed) ? parsed : fallback;
+/**
+ * Quality profiles keyed by performanceTier.
+ * All geometry segment counts, star counts, and WebGL flags live here.
+ * Changing a tier requirement means editing this object — nothing else.
+ */
+const QUALITY = {
+  high: {
+    starCount: 900,
+    cloudSegments: 24,
+    ringSegments: 64,
+    antialias: true,
+    dpr: [1, 1.75],
+  },
+  low: {
+    starCount: 200,
+    cloudSegments: 8,
+    ringSegments: 16,
+    antialias: false,
+    dpr: [1, 1],
+  },
 };
 
 const buildStopAnchor = (stop, index) => ({
@@ -24,6 +38,10 @@ const buildStopAnchor = (stop, index) => ({
   z: getZIndex(stop, index) * -STOP_SPACING_Z,
 });
 
+// ---------------------------------------------------------------------------
+// CameraRig — drives the Three.js camera from Zustand scrollProgress.
+// Uses gsap.quickTo so easing is handled by GSAP, not a raw lerp.
+// ---------------------------------------------------------------------------
 function CameraRig({ stops }) {
   const { camera } = useThree();
   const scrollProgress = useStore((state) => state.scrollProgress);
@@ -47,34 +65,18 @@ function CameraRig({ stops }) {
   );
 
   useEffect(() => {
-    quickXRef.current = gsap.quickTo(camera.position, 'x', {
-      duration: 0.65,
-      ease: 'power3.out',
-    });
-    quickYRef.current = gsap.quickTo(camera.position, 'y', {
-      duration: 0.65,
-      ease: 'power3.out',
-    });
-    quickZRef.current = gsap.quickTo(camera.position, 'z', {
-      duration: 0.85,
-      ease: 'power3.out',
-    });
-
-    quickTiltYRef.current = gsap.quickTo(tiltState.current, 'y', {
-      duration: 0.55,
-      ease: 'sine.out',
-    });
-    quickTiltZRef.current = gsap.quickTo(tiltState.current, 'z', {
-      duration: 0.55,
-      ease: 'sine.out',
-    });
+    quickXRef.current = gsap.quickTo(camera.position, 'x', { duration: 0.65, ease: 'power3.out' });
+    quickYRef.current = gsap.quickTo(camera.position, 'y', { duration: 0.65, ease: 'power3.out' });
+    quickZRef.current = gsap.quickTo(camera.position, 'z', { duration: 0.85, ease: 'power3.out' });
+    quickTiltYRef.current = gsap.quickTo(tiltState.current, 'y', { duration: 0.55, ease: 'sine.out' });
+    quickTiltZRef.current = gsap.quickTo(tiltState.current, 'z', { duration: 0.55, ease: 'sine.out' });
 
     return () => {
-      if (quickXRef.current?.tween) quickXRef.current.tween.kill();
-      if (quickYRef.current?.tween) quickYRef.current.tween.kill();
-      if (quickZRef.current?.tween) quickZRef.current.tween.kill();
-      if (quickTiltYRef.current?.tween) quickTiltYRef.current.tween.kill();
-      if (quickTiltZRef.current?.tween) quickTiltZRef.current.tween.kill();
+      quickXRef.current?.tween?.kill();
+      quickYRef.current?.tween?.kill();
+      quickZRef.current?.tween?.kill();
+      quickTiltYRef.current?.tween?.kill();
+      quickTiltZRef.current?.tween?.kill();
     };
   }, [camera]);
 
@@ -110,15 +112,14 @@ function CameraRig({ stops }) {
     quickYRef.current?.(targetY);
     quickZRef.current?.(targetZ);
 
-    const lookAheadZ = targetZ - (12 + focusStrength * 8);
     lookTarget.current = {
       x: nearestStop ? gsap.utils.interpolate(0, nearestStop.x * 0.5, focusStrength) : 0,
       y: nearestStop ? gsap.utils.interpolate(0, nearestStop.y * 0.45, focusStrength) : 0,
-      z: lookAheadZ,
+      z: targetZ - (12 + focusStrength * 8),
     };
 
-    quickTiltZRef.current?.((Math.sin(normalizedProgress * Math.PI * 8) * 0.075) * (1 - focusStrength * 0.35));
-    quickTiltYRef.current?.((Math.cos(normalizedProgress * Math.PI * 6.5) * 0.06) * (1 - focusStrength * 0.2));
+    quickTiltZRef.current?.(Math.sin(normalizedProgress * Math.PI * 8) * 0.075 * (1 - focusStrength * 0.35));
+    quickTiltYRef.current?.(Math.cos(normalizedProgress * Math.PI * 6.5) * 0.06 * (1 - focusStrength * 0.2));
   }, [scrollProgress, stopAnchors]);
 
   useFrame(({ clock }) => {
@@ -134,40 +135,30 @@ function CameraRig({ stops }) {
   return null;
 }
 
-function TimelineScene() {
-  return <TimelineStops />;
-}
-
-function ProceduralBackdrop({ onInitialized }) {
+// ---------------------------------------------------------------------------
+// ProceduralBackdrop — starfield + atmospheric cloud blobs.
+// Segment counts and star count are driven by the quality profile.
+// ---------------------------------------------------------------------------
+function ProceduralBackdrop({ onInitialized, quality }) {
   const fieldRef = useRef();
   const cloudsRef = useRef();
 
   useEffect(() => {
-    if (typeof onInitialized === 'function') {
-      onInitialized();
-    }
+    if (typeof onInitialized === 'function') onInitialized();
   }, [onInitialized]);
 
-  const starCount = useMemo(
-    () => (typeof window !== 'undefined' && window.innerWidth < 768 ? MOBILE_STAR_COUNT : DESKTOP_STAR_COUNT),
-    [],
-  );
-
   const starPositions = useMemo(() => {
-    const positions = new Float32Array(starCount * 3);
-
-    for (let index = 0; index < starCount; index += 1) {
+    const positions = new Float32Array(quality.starCount * 3);
+    for (let i = 0; i < quality.starCount; i++) {
       const radius = 18 + Math.random() * 28;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-
-      positions[index * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[index * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[index * 3 + 2] = radius * Math.cos(phi);
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
     }
-
     return positions;
-  }, [starCount]);
+  }, [quality.starCount]);
 
   const cloudData = useMemo(
     () => [
@@ -196,6 +187,8 @@ function ProceduralBackdrop({ onInitialized }) {
     }
   });
 
+  const seg = quality.cloudSegments;
+
   return (
     <group>
       <color attach="background" args={['#355C7D']} />
@@ -210,14 +203,7 @@ function ProceduralBackdrop({ onInitialized }) {
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[starPositions, 3]} />
           </bufferGeometry>
-          <pointsMaterial
-            size={0.08}
-            color="#ffffff"
-            transparent
-            opacity={0.9}
-            depthWrite={false}
-            sizeAttenuation
-          />
+          <pointsMaterial size={0.08} color="#ffffff" transparent opacity={0.9} depthWrite={false} sizeAttenuation />
         </points>
       </group>
 
@@ -229,7 +215,7 @@ function ProceduralBackdrop({ onInitialized }) {
             scale={cloud.scale}
             userData={{ baseScale: cloud.scale }}
           >
-            <sphereGeometry args={[1, 24, 24]} />
+            <sphereGeometry args={[1, seg, seg]} />
             <meshStandardMaterial
               color={index === 0 ? '#C56C86' : '#725A7A'}
               transparent
@@ -245,22 +231,34 @@ function ProceduralBackdrop({ onInitialized }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// PortfolioCanvas — the exported root. Reads performanceTier once and passes
+// the resolved quality profile down to child components.
+// ---------------------------------------------------------------------------
 export default function PortfolioCanvas() {
   const projectData = useStore((state) => state.projectData);
   const onReady = useStore((state) => state.onReady);
+  const tier = useStore((state) => state.performanceTier);
   const stops = projectData?.timeline_stops || [];
+
+  // Resolve quality profile once — performanceTier never changes at runtime.
+  const quality = useMemo(() => QUALITY[tier] ?? QUALITY.low, [tier]);
 
   return (
     <Canvas
       className="pointer-events-auto fixed inset-0 z-0"
-      dpr={[1, 1.75]}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      dpr={quality.dpr}
+      gl={{
+        antialias: quality.antialias,
+        alpha: true,
+        powerPreference: 'high-performance',
+      }}
       camera={{ position: [0, 0, 8], fov: 45, near: 0.1, far: 500 }}
     >
       <Suspense fallback={null}>
         <CameraRig stops={stops} />
-        <ProceduralBackdrop onInitialized={onReady} />
-        <TimelineScene />
+        <ProceduralBackdrop onInitialized={onReady} quality={quality} />
+        <TimelineStops quality={quality} />
       </Suspense>
     </Canvas>
   );

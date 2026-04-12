@@ -2,7 +2,7 @@
 
 import type { AdminActionState } from "@/lib/admin/action-state";
 import { getValidationErrorState } from "@/lib/admin/action-state";
-import { runAdminMutation } from "@/lib/admin/mutations";
+import { runAdminDelete, runAdminMutation } from "@/lib/admin/mutations";
 import {
   extractRecordId,
   parseAboutSectionFormData,
@@ -106,3 +106,78 @@ export async function saveGlobalVisualSettings(
   });
 }
 
+function invalidDeleteState(): AdminActionState {
+  return {
+    status: "error",
+    message: "Invalid record identifier.",
+    fieldErrors: {},
+  };
+}
+
+export async function deleteSiteSettings(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "site_settings",
+    recordId,
+    successMessage: "Site settings deleted.",
+    revalidatePaths: ["/admin/settings/site", "/"],
+  });
+}
+
+export async function deleteHeroSection(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "hero_sections",
+    recordId,
+    successMessage: "Hero section deleted.",
+    revalidatePaths: ["/admin/hero", "/"],
+  });
+}
+
+export async function deleteAboutSection(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "about_sections",
+    recordId,
+    successMessage: "About section deleted.",
+    revalidatePaths: ["/admin/about", "/"],
+  });
+}
+
+export async function deleteSkill(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "skills",
+    recordId,
+    successMessage: "Skill deleted.",
+    revalidatePaths: ["/admin/skills", "/"],
+  });
+}

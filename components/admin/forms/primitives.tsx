@@ -159,6 +159,19 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+export function AdminDangerButton({ label = "Delete" }: { label?: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-70"
+    >
+      {pending ? "Deleting..." : label}
+    </button>
+  );
+}
+
 export function AdminActionRow({
   submitLabel = "Save changes",
   children,
@@ -173,4 +186,3 @@ export function AdminActionRow({
     </div>
   );
 }
-

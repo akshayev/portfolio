@@ -255,7 +255,7 @@ export default async function Home() {
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex flex-1 w-full max-w-3xl flex-col gap-8 py-20 px-8 bg-white dark:bg-black sm:px-16">
         {showHero ? (
-          <section className="space-y-3">
+          <section className="animate-section space-y-3">
             <h1 className="text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
               {hero?.headline ?? site?.title ?? "Portfolio"}
             </h1>
@@ -277,7 +277,7 @@ export default async function Home() {
         ) : null}
 
         {showAbout ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">About</h2>
             <h3 className="text-base font-medium text-zinc-800 dark:text-zinc-200">{about?.title ?? "About me"}</h3>
             <p className="text-zinc-600 dark:text-zinc-400">{about?.content ?? "No about content yet."}</p>
@@ -285,10 +285,10 @@ export default async function Home() {
         ) : null}
 
         {showSkills ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Skills</h2>
             {orderedSkills.length > 0 ? (
-              <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-1 text-zinc-700 dark:text-zinc-300">
                 {orderedSkills.map((skill) => (
                   <li key={skill.id}>
                     {skill.name} ({skill.category})
@@ -303,10 +303,10 @@ export default async function Home() {
         ) : null}
 
         {showExperience ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Experience</h2>
             {orderedExperiences.length > 0 ? (
-              <ul className="space-y-2 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-2 text-zinc-700 dark:text-zinc-300">
                 {orderedExperiences.map((item) => (
                   <li key={item.id}>
                     <p className="font-medium">{item.role_title} @ {item.company_name}</p>
@@ -324,10 +324,10 @@ export default async function Home() {
         ) : null}
 
         {showEducation ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Education</h2>
             {orderedEducation.length > 0 ? (
-              <ul className="space-y-2 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-2 text-zinc-700 dark:text-zinc-300">
                 {orderedEducation.map((item) => (
                   <li key={item.id}>
                     <p className="font-medium">{item.degree} - {item.institution_name}</p>
@@ -345,10 +345,10 @@ export default async function Home() {
         ) : null}
 
         {showCertifications ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Certifications</h2>
             {orderedCertifications.length > 0 ? (
-              <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-1 text-zinc-700 dark:text-zinc-300">
                 {orderedCertifications.map((item) => (
                 <li key={item.id}>
                   {getSafeExternalUrl(item.credential_url) ? (
@@ -376,10 +376,10 @@ export default async function Home() {
         ) : null}
 
         {showProjects ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Projects</h2>
             {orderedProjects.length > 0 ? (
-              <ul className="space-y-3 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-3 text-zinc-700 dark:text-zinc-300">
                 {orderedProjects.map((project) => {
                   const record = project as Record<string, unknown>;
                   const projectUrl = getSafeExternalUrl(
@@ -430,10 +430,10 @@ export default async function Home() {
         ) : null}
 
         {showPublications ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Publications</h2>
             {orderedPublications.length > 0 ? (
-              <ul className="space-y-3 text-zinc-700 dark:text-zinc-300">
+              <ul className="animate-list space-y-3 text-zinc-700 dark:text-zinc-300">
                 {orderedPublications.map((publication) => {
                   const record = publication as Record<string, unknown>;
                   const publicationUrl = getSafeExternalUrl(
@@ -472,13 +472,13 @@ export default async function Home() {
         ) : null}
 
         {showContactSocial ? (
-          <section className="space-y-2">
+          <section className="animate-section space-y-2">
             <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Contact & Social</h2>
             <p className="text-zinc-700 dark:text-zinc-300">Email: {contact?.email ?? "Not provided"}</p>
             <p className="text-zinc-700 dark:text-zinc-300">Phone: {contact?.phone ?? "Not provided"}</p>
             <p className="text-zinc-700 dark:text-zinc-300">WhatsApp: {contact?.whatsapp ?? "Not provided"}</p>
             {socialLinks && socialLinks.length > 0 ? (
-              <ul className="space-y-1">
+              <ul className="animate-list space-y-1">
                 {socialLinks.map((link) => (
                   <li key={link.id}>
                     {getSafeExternalUrl(link.url) ? (
@@ -503,7 +503,7 @@ export default async function Home() {
           </section>
         ) : null}
 
-        <section className="space-y-1 border-t border-zinc-200 pt-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+        <section className="animate-section space-y-1 border-t border-zinc-200 pt-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
           <p>Visual: {visual?.animation_intensity ?? "medium"} intensity</p>
           <p>Mobile Effects: {visual?.mobile_effects_mode ?? "adaptive"}</p>
         </section>

@@ -8,6 +8,8 @@ type SectionVisibility = {
   education?: boolean;
   certifications?: boolean;
   contactSocial?: boolean;
+  projects?: boolean;
+  publications?: boolean;
 };
 
 const monthYearFormatter = new Intl.DateTimeFormat("en-US", {
@@ -33,6 +35,41 @@ function compareDateDesc(a: string | null, b: string | null): number {
   const aTime = a ? Date.parse(`${a}T00:00:00Z`) : Number.NEGATIVE_INFINITY;
   const bTime = b ? Date.parse(`${b}T00:00:00Z`) : Number.NEGATIVE_INFINITY;
   return bTime - aTime;
+}
+
+function toTimestamp(value: string | null): number {
+  return value ? Date.parse(value) : Number.NEGATIVE_INFINITY;
+}
+
+function getSafeExternalUrl(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const candidate = value.trim();
+  if (!candidate || !URL.canParse(candidate)) {
+    return null;
+  }
+
+  const parsed = new URL(candidate);
+  return parsed.protocol === "http:" || parsed.protocol === "https:" ? candidate : null;
+}
+
+function getSortOrder(record: { display_order: number | null } & Record<string, unknown>): number {
+  const sortOrder = record.sort_order;
+  if (typeof sortOrder === "number") {
+    return sortOrder;
+  }
+
+  return record.display_order ?? Number.MAX_SAFE_INTEGER;
+}
+
+function getPublicationDate(record: Record<string, unknown> & { start_date: string | null; end_date: string | null }): string | null {
+  if (typeof record.publication_date === "string" && record.publication_date.trim()) {
+    return record.publication_date;
+  }
+
+  return record.end_date ?? record.start_date;
 }
 
 function readSectionVisibility(value: unknown): SectionVisibility {
@@ -62,6 +99,8 @@ function readSectionVisibility(value: unknown): SectionVisibility {
           : typeof sections.contact === "boolean"
             ? sections.contact
             : undefined,
+    projects: typeof sections.projects === "boolean" ? sections.projects : undefined,
+    publications: typeof sections.publications === "boolean" ? sections.publications : undefined,
   };
 }
 
@@ -75,6 +114,7 @@ export default async function Home() {
     { data: experiences },
     { data: education },
     { data: certifications },
+    { data: projects },
     { data: contactSettings },
     { data: socialLinks },
     { data: visualSettings },
@@ -108,6 +148,7 @@ export default async function Home() {
       .select("*")
       .order("issue_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
+    supabase.from("projects").select("*").order("featured", { ascending: false }).order("created_at", { ascending: false }),
     supabase
       .from("contact_settings")
       .select("*")
@@ -134,6 +175,8 @@ export default async function Home() {
   const showExperience = visibility.experience ?? true;
   const showEducation = visibility.education ?? true;
   const showCertifications = visibility.certifications ?? true;
+  const showProjects = visibility.projects ?? true;
+  const showPublications = visibility.publications ?? true;
   const showContactSocial = visibility.contactSocial ?? true;
   const orderedSkills = [...(skills ?? [])].sort((a, b) => {
     const aSortOrder =
@@ -180,6 +223,33 @@ export default async function Home() {
     const bCreatedAt = b.created_at ? Date.parse(b.created_at) : Number.NEGATIVE_INFINITY;
     return bCreatedAt - aCreatedAt;
   });
+  const publicationProjects = (projects ?? []).filter((project) => project.project_type.toLowerCase() === "publication");
+  const portfolioProjects = (projects ?? []).filter((project) => project.project_type.toLowerCase() !== "publication");
+  const orderedProjects = [...portfolioProjects].sort((a, b) => {
+    const featuredCompare = Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+    if (featuredCompare !== 0) {
+      return featuredCompare;
+    }
+
+    const sortCompare = getSortOrder(a as { display_order: number | null } & Record<string, unknown>) -
+      getSortOrder(b as { display_order: number | null } & Record<string, unknown>);
+    if (sortCompare !== 0) {
+      return sortCompare;
+    }
+
+    return toTimestamp(b.created_at) - toTimestamp(a.created_at);
+  });
+  const orderedPublications = [...publicationProjects].sort((a, b) => {
+    const dateCompare = compareDateDesc(
+      getPublicationDate(a as Record<string, unknown> & { start_date: string | null; end_date: string | null }),
+      getPublicationDate(b as Record<string, unknown> & { start_date: string | null; end_date: string | null })
+    );
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+
+    return toTimestamp(b.created_at) - toTimestamp(a.created_at);
+  });
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -195,9 +265,10 @@ export default async function Home() {
             {hero?.cta_text && hero?.cta_link ? (
               <a
                 className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
-                href={hero.cta_link}
+                href={getSafeExternalUrl(hero.cta_link) ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`Open ${hero.cta_text} in a new tab`}
               >
                 {hero.cta_text}
               </a>
@@ -279,14 +350,20 @@ export default async function Home() {
             {orderedCertifications.length > 0 ? (
               <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
                 {orderedCertifications.map((item) => (
-                  <li key={item.id}>
-                    {item.credential_url ? (
-                      <a href={item.credential_url} target="_blank" rel="noopener noreferrer" className="underline">
-                        {item.name}
-                      </a>
-                    ) : (
-                      item.name
-                    )}
+                <li key={item.id}>
+                  {getSafeExternalUrl(item.credential_url) ? (
+                    <a
+                      href={getSafeExternalUrl(item.credential_url) ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                      aria-label={`Open credential for ${item.name} in a new tab`}
+                    >
+                      {item.name}
+                    </a>
+                  ) : (
+                    item.name
+                  )}
                     {` - ${item.issuer}`}
                     {item.issue_date ? ` (${formatMonthYear(item.issue_date)})` : ""}
                   </li>
@@ -294,6 +371,102 @@ export default async function Home() {
               </ul>
             ) : (
               <p className="text-zinc-600 dark:text-zinc-400">No certifications yet.</p>
+            )}
+          </section>
+        ) : null}
+
+        {showProjects ? (
+          <section className="space-y-2">
+            <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Projects</h2>
+            {orderedProjects.length > 0 ? (
+              <ul className="space-y-3 text-zinc-700 dark:text-zinc-300">
+                {orderedProjects.map((project) => {
+                  const record = project as Record<string, unknown>;
+                  const projectUrl = getSafeExternalUrl(
+                    typeof record.project_url === "string" ? record.project_url : project.live_url
+                  );
+                  const repoUrl = getSafeExternalUrl(
+                    typeof record.repo_url === "string" ? record.repo_url : project.github_url
+                  );
+
+                  return (
+                    <li key={project.id}>
+                      <h3 className="font-medium">{project.title}</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">{project.short_description}</p>
+                      {projectUrl || repoUrl ? (
+                        <div className="flex gap-3 pt-1">
+                          {projectUrl ? (
+                            <a
+                              href={projectUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                              aria-label={`Open live project for ${project.title} in a new tab`}
+                            >
+                              Project
+                            </a>
+                          ) : null}
+                          {repoUrl ? (
+                            <a
+                              href={repoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                              aria-label={`Open repository for ${project.title} in a new tab`}
+                            >
+                              Repo
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-zinc-600 dark:text-zinc-400">No projects yet.</p>
+            )}
+          </section>
+        ) : null}
+
+        {showPublications ? (
+          <section className="space-y-2">
+            <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Publications</h2>
+            {orderedPublications.length > 0 ? (
+              <ul className="space-y-3 text-zinc-700 dark:text-zinc-300">
+                {orderedPublications.map((publication) => {
+                  const record = publication as Record<string, unknown>;
+                  const publicationUrl = getSafeExternalUrl(
+                    typeof record.publication_url === "string" ? record.publication_url : publication.live_url
+                  );
+                  const publicationDate = getPublicationDate(
+                    publication as Record<string, unknown> & { start_date: string | null; end_date: string | null }
+                  );
+
+                  return (
+                    <li key={publication.id}>
+                      <h3 className="font-medium">{publication.title}</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">{publication.short_description}</p>
+                      {publicationDate ? (
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">{formatMonthYear(publicationDate)}</p>
+                      ) : null}
+                      {publicationUrl ? (
+                        <a
+                          href={publicationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                          aria-label={`Open publication ${publication.title} in a new tab`}
+                        >
+                          Publication
+                        </a>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-zinc-600 dark:text-zinc-400">No publications yet.</p>
             )}
           </section>
         ) : null}
@@ -308,9 +481,19 @@ export default async function Home() {
               <ul className="space-y-1">
                 {socialLinks.map((link) => (
                   <li key={link.id}>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-zinc-700 underline dark:text-zinc-300">
-                      {link.platform}
-                    </a>
+                    {getSafeExternalUrl(link.url) ? (
+                      <a
+                        href={getSafeExternalUrl(link.url) ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-zinc-700 underline dark:text-zinc-300"
+                        aria-label={`Open ${link.platform} profile in a new tab`}
+                      >
+                        {link.platform}
+                      </a>
+                    ) : (
+                      <span className="text-zinc-500 dark:text-zinc-500">{link.platform}</span>
+                    )}
                   </li>
                 ))}
               </ul>

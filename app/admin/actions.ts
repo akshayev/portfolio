@@ -9,6 +9,7 @@ import {
   parseEducationFormData,
   parseExperienceFormData,
   extractRecordId,
+  parseOptionalRecordId,
   parseAboutSectionFormData,
   parseGlobalVisualSettingsFormData,
   parseHeroSectionFormData,
@@ -21,10 +22,37 @@ function toValidationState(result: { error: { flatten: () => { fieldErrors: Reco
   return getValidationErrorState(result.error.flatten().fieldErrors);
 }
 
+function getSaveRecordId(formData: FormData): {
+  id: string | null;
+  errorState: AdminActionState | null;
+} {
+  const parsed = parseOptionalRecordId(formData);
+  if (parsed.error) {
+    return {
+      id: null,
+      errorState: {
+        status: "error",
+        message: parsed.error,
+        fieldErrors: {},
+      },
+    };
+  }
+
+  return {
+    id: parsed.id,
+    errorState: null,
+  };
+}
+
 export async function saveSiteSettings(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseSiteSettingsFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -33,7 +61,7 @@ export async function saveSiteSettings(
   return runAdminMutation({
     table: "site_settings",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Site settings saved.",
     revalidatePaths: ["/admin/settings/site", "/"],
   });
@@ -43,6 +71,11 @@ export async function saveHeroSection(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseHeroSectionFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -51,7 +84,7 @@ export async function saveHeroSection(
   return runAdminMutation({
     table: "hero_sections",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Hero section saved.",
     revalidatePaths: ["/admin/hero", "/"],
   });
@@ -61,6 +94,11 @@ export async function saveAboutSection(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseAboutSectionFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -69,7 +107,7 @@ export async function saveAboutSection(
   return runAdminMutation({
     table: "about_sections",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "About section saved.",
     revalidatePaths: ["/admin/about", "/"],
   });
@@ -79,6 +117,11 @@ export async function saveSkill(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseSkillFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -87,7 +130,7 @@ export async function saveSkill(
   return runAdminMutation({
     table: "skills",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Skill saved.",
     revalidatePaths: ["/admin/skills", "/"],
   });
@@ -97,6 +140,11 @@ export async function saveGlobalVisualSettings(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseGlobalVisualSettingsFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -105,7 +153,7 @@ export async function saveGlobalVisualSettings(
   return runAdminMutation({
     table: "global_visual_settings",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Visual settings saved.",
     revalidatePaths: ["/admin/settings/visual", "/"],
   });
@@ -115,6 +163,11 @@ export async function saveExperience(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseExperienceFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -123,7 +176,7 @@ export async function saveExperience(
   return runAdminMutation({
     table: "experiences",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Experience saved.",
     revalidatePaths: ["/admin/experience", "/"],
   });
@@ -133,6 +186,11 @@ export async function saveEducation(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseEducationFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -141,7 +199,7 @@ export async function saveEducation(
   return runAdminMutation({
     table: "education",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Education saved.",
     revalidatePaths: ["/admin/education", "/"],
   });
@@ -151,6 +209,11 @@ export async function saveCertification(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseCertificationFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -159,7 +222,7 @@ export async function saveCertification(
   return runAdminMutation({
     table: "certifications",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Certification saved.",
     revalidatePaths: ["/admin/certifications", "/"],
   });
@@ -169,6 +232,11 @@ export async function saveContactSettings(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseContactSettingsFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -177,7 +245,7 @@ export async function saveContactSettings(
   return runAdminMutation({
     table: "contact_settings",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Contact settings saved.",
     revalidatePaths: ["/admin/settings/contact", "/"],
   });
@@ -187,6 +255,11 @@ export async function saveSocialLink(
   _prevState: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  const recordId = getSaveRecordId(formData);
+  if (recordId.errorState) {
+    return recordId.errorState;
+  }
+
   const parsed = parseSocialLinkFormData(formData);
   if (!parsed.success) {
     return toValidationState(parsed);
@@ -195,7 +268,7 @@ export async function saveSocialLink(
   return runAdminMutation({
     table: "social_links",
     payload: parsed.data,
-    recordId: extractRecordId(formData),
+    recordId: recordId.id,
     successMessage: "Social link saved.",
     revalidatePaths: ["/admin/settings/social", "/"],
   });

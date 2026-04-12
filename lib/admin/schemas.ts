@@ -256,6 +256,12 @@ export const socialLinkSchema: z.ZodType<SocialLinkPayload> = z.object({
 
 const recordIdSchema = z.string().uuid();
 
+export type ParsedRecordId = {
+  id: string | null;
+  error: string | null;
+  provided: boolean;
+};
+
 function readText(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
@@ -267,13 +273,31 @@ function readSwitch(formData: FormData, name: string): "true" | "false" {
 }
 
 export function extractRecordId(formData: FormData): string | null {
-  const candidate = readText(formData, "id").trim();
-  if (!candidate) {
+  const parsed = parseOptionalRecordId(formData);
+  if (parsed.error) {
     return null;
   }
 
+  return parsed.id;
+}
+
+export function parseOptionalRecordId(formData: FormData): ParsedRecordId {
+  const provided = formData.has("id");
+  if (!provided) {
+    return { id: null, error: null, provided: false };
+  }
+
+  const candidate = readText(formData, "id").trim();
+  if (!candidate) {
+    return { id: null, error: "Invalid record identifier.", provided: true };
+  }
+
   const parsed = recordIdSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) {
+    return { id: null, error: "Invalid record identifier.", provided: true };
+  }
+
+  return { id: parsed.data, error: null, provided: true };
 }
 
 export function parseSiteSettingsFormData(formData: FormData) {

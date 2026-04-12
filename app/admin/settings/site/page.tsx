@@ -1,10 +1,20 @@
-import { PageContainer } from '@/components/admin/page-container';
-import { EmptyState } from '@/components/admin/state-displays';
+import { PageContainer } from "@/components/admin/page-container";
+import { ErrorState } from "@/components/admin/state-displays";
+import { SiteSettingsForm } from "@/components/admin/forms/section-forms";
+import { createClient } from "@/utils/supabase/server";
 
-export default function SettingsSitePage() {
+export default async function SettingsSitePage() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <PageContainer title="settings/site">
-      <EmptyState message="This section is not yet implemented. Phase 2 functionality pending." />
+      {error ? <ErrorState error={error.message} /> : <SiteSettingsForm initial={data} />}
     </PageContainer>
   );
 }

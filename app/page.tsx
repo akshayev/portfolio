@@ -1,5 +1,30 @@
 import { createClient } from "@/utils/supabase/server";
 
+const monthYearFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatMonthYear(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return monthYearFormatter.format(parsed);
+}
+
+function compareDateDesc(a: string | null, b: string | null): number {
+  const aTime = a ? Date.parse(`${a}T00:00:00Z`) : Number.NEGATIVE_INFINITY;
+  const bTime = b ? Date.parse(`${b}T00:00:00Z`) : Number.NEGATIVE_INFINITY;
+  return bTime - aTime;
+}
+
 export default async function Home() {
   const supabase = await createClient();
   const [
@@ -27,18 +52,22 @@ export default async function Home() {
       .eq("is_active", true)
       .order("created_at", { ascending: true })
       .limit(1),
-    supabase.from("skills").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+    supabase.from("skills").select("*").order("created_at", { ascending: false }),
     supabase
       .from("experiences")
       .select("*")
-      .order("display_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase.from("education").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("education")
+      .select("*")
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }),
     supabase
       .from("certifications")
       .select("*")
-      .order("display_order", { ascending: true })
-      .order("created_at", { ascending: true }),
+      .order("issue_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }),
     supabase
       .from("contact_settings")
       .select("*")
@@ -58,6 +87,51 @@ export default async function Home() {
   const about = aboutSections?.[0] ?? null;
   const contact = contactSettings?.[0] ?? null;
   const visual = visualSettings?.[0] ?? null;
+  const orderedSkills = [...(skills ?? [])].sort((a, b) => {
+    const aSortOrder =
+      "sort_order" in (a as object) && typeof (a as { sort_order?: number | null }).sort_order === "number"
+        ? ((a as { sort_order?: number | null }).sort_order ?? Number.MAX_SAFE_INTEGER)
+        : (a.display_order ?? Number.MAX_SAFE_INTEGER);
+    const bSortOrder =
+      "sort_order" in (b as object) && typeof (b as { sort_order?: number | null }).sort_order === "number"
+        ? ((b as { sort_order?: number | null }).sort_order ?? Number.MAX_SAFE_INTEGER)
+        : (b.display_order ?? Number.MAX_SAFE_INTEGER);
+
+    if (aSortOrder !== bSortOrder) {
+      return aSortOrder - bSortOrder;
+    }
+
+    const aCreatedAt = a.created_at ? Date.parse(a.created_at) : Number.NEGATIVE_INFINITY;
+    const bCreatedAt = b.created_at ? Date.parse(b.created_at) : Number.NEGATIVE_INFINITY;
+    return bCreatedAt - aCreatedAt;
+  });
+  const orderedExperiences = [...(experiences ?? [])].sort((a, b) => {
+    const dateCompare = compareDateDesc(a.start_date, b.start_date);
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+    const aCreatedAt = a.created_at ? Date.parse(a.created_at) : Number.NEGATIVE_INFINITY;
+    const bCreatedAt = b.created_at ? Date.parse(b.created_at) : Number.NEGATIVE_INFINITY;
+    return bCreatedAt - aCreatedAt;
+  });
+  const orderedEducation = [...(education ?? [])].sort((a, b) => {
+    const dateCompare = compareDateDesc(a.start_date, b.start_date);
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+    const aCreatedAt = a.created_at ? Date.parse(a.created_at) : Number.NEGATIVE_INFINITY;
+    const bCreatedAt = b.created_at ? Date.parse(b.created_at) : Number.NEGATIVE_INFINITY;
+    return bCreatedAt - aCreatedAt;
+  });
+  const orderedCertifications = [...(certifications ?? [])].sort((a, b) => {
+    const dateCompare = compareDateDesc(a.issue_date, b.issue_date);
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+    const aCreatedAt = a.created_at ? Date.parse(a.created_at) : Number.NEGATIVE_INFINITY;
+    const bCreatedAt = b.created_at ? Date.parse(b.created_at) : Number.NEGATIVE_INFINITY;
+    return bCreatedAt - aCreatedAt;
+  });
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -89,9 +163,9 @@ export default async function Home() {
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Skills</h2>
-          {skills && skills.length > 0 ? (
+          {orderedSkills.length > 0 ? (
             <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
-              {skills.map((skill) => (
+              {orderedSkills.map((skill) => (
                 <li key={skill.id}>
                   {skill.name} ({skill.category})
                   {typeof skill.proficiency_level === "number" ? ` - ${skill.proficiency_level}%` : ""}
@@ -105,13 +179,13 @@ export default async function Home() {
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Experience</h2>
-          {experiences && experiences.length > 0 ? (
+          {orderedExperiences.length > 0 ? (
             <ul className="space-y-2 text-zinc-700 dark:text-zinc-300">
-              {experiences.map((item) => (
+              {orderedExperiences.map((item) => (
                 <li key={item.id}>
                   <p className="font-medium">{item.role_title} @ {item.company_name}</p>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {item.start_date} - {item.is_current ? "Present" : (item.end_date ?? "")}
+                    {formatMonthYear(item.start_date)} - {item.is_current ? "Present" : (formatMonthYear(item.end_date) || "")}
                   </p>
                   {item.description ? <p>{item.description}</p> : null}
                 </li>
@@ -124,11 +198,14 @@ export default async function Home() {
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Education</h2>
-          {education && education.length > 0 ? (
+          {orderedEducation.length > 0 ? (
             <ul className="space-y-2 text-zinc-700 dark:text-zinc-300">
-              {education.map((item) => (
+              {orderedEducation.map((item) => (
                 <li key={item.id}>
                   <p className="font-medium">{item.degree} - {item.institution_name}</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    {formatMonthYear(item.start_date)} - {formatMonthYear(item.end_date)}
+                  </p>
                   {item.field_of_study ? <p className="text-sm">{item.field_of_study}</p> : null}
                 </li>
               ))}
@@ -140,9 +217,9 @@ export default async function Home() {
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-black dark:text-zinc-50">Certifications</h2>
-          {certifications && certifications.length > 0 ? (
+          {orderedCertifications.length > 0 ? (
             <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
-              {certifications.map((item) => (
+              {orderedCertifications.map((item) => (
                 <li key={item.id}>
                   {item.credential_url ? (
                     <a href={item.credential_url} target="_blank" rel="noopener noreferrer" className="underline">
@@ -152,6 +229,7 @@ export default async function Home() {
                     item.name
                   )}
                   {` - ${item.issuer}`}
+                  {item.issue_date ? ` (${formatMonthYear(item.issue_date)})` : ""}
                 </li>
               ))}
             </ul>

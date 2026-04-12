@@ -23,6 +23,42 @@ const nullableUrl = z
     message: "Please enter a valid URL",
   });
 
+const requiredUrl = (label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .refine((value) => URL.canParse(value), {
+      message: `Please enter a valid ${label.toLowerCase()}`,
+    });
+
+const requiredEmail = z
+  .string()
+  .trim()
+  .min(1, "Email is required")
+  .email("Please enter a valid email")
+  .max(254, "Email must be 254 characters or fewer");
+
+const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+const requiredIsoDate = (label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .refine((value) => isoDateRegex.test(value), {
+      message: `${label} must be in YYYY-MM-DD format`,
+    });
+
+const nullableIsoDate = (label: string) =>
+  z
+    .string()
+    .trim()
+    .transform((value) => (value.length === 0 ? null : value))
+    .refine((value) => value === null || isoDateRegex.test(value), {
+      message: `${label} must be in YYYY-MM-DD format`,
+    });
+
 const booleanFromForm = z.enum(["true", "false"]).transform((value) => value === "true");
 
 const nullableInteger = (label: string) =>
@@ -99,6 +135,42 @@ export type GlobalVisualSettingsPayload = Pick<
   | "mobile_effects_mode"
 >;
 
+export type ExperiencePayload = Pick<
+  TablesInsert<"experiences">,
+  | "company_name"
+  | "role_title"
+  | "description"
+  | "start_date"
+  | "end_date"
+  | "is_current"
+  | "display_order"
+>;
+
+export type EducationPayload = Pick<
+  TablesInsert<"education">,
+  | "institution_name"
+  | "degree"
+  | "field_of_study"
+  | "start_date"
+  | "end_date"
+  | "display_order"
+>;
+
+export type CertificationPayload = Pick<
+  TablesInsert<"certifications">,
+  "name" | "issuer" | "issue_date" | "credential_url" | "display_order"
+>;
+
+export type ContactSettingsPayload = Pick<
+  TablesInsert<"contact_settings">,
+  "email" | "phone" | "whatsapp" | "display_order"
+>;
+
+export type SocialLinkPayload = Pick<
+  TablesInsert<"social_links">,
+  "platform" | "url" | "icon_url" | "display_order"
+>;
+
 export const siteSettingsSchema: z.ZodType<SiteSettingsPayload> = z.object({
   name: requiredText("Name", 120),
   title: requiredText("Title", 160),
@@ -139,6 +211,47 @@ export const globalVisualSettingsSchema: z.ZodType<GlobalVisualSettingsPayload> 
   preloader_enabled: booleanFromForm,
   animation_intensity: animationIntensitySchema,
   mobile_effects_mode: mobileEffectsModeSchema,
+});
+
+export const experienceSchema: z.ZodType<ExperiencePayload> = z.object({
+  company_name: requiredText("Company name", 160),
+  role_title: requiredText("Role title", 160),
+  description: nullableText("Description", 5000),
+  start_date: requiredIsoDate("Start date"),
+  end_date: nullableIsoDate("End date"),
+  is_current: booleanFromForm,
+  display_order: nonNegativeIntegerWithDefaultZero("Display order"),
+});
+
+export const educationSchema: z.ZodType<EducationPayload> = z.object({
+  institution_name: requiredText("Institution name", 200),
+  degree: requiredText("Degree", 200),
+  field_of_study: nullableText("Field of study", 200),
+  start_date: nullableIsoDate("Start date"),
+  end_date: nullableIsoDate("End date"),
+  display_order: nonNegativeIntegerWithDefaultZero("Display order"),
+});
+
+export const certificationSchema: z.ZodType<CertificationPayload> = z.object({
+  name: requiredText("Certification name", 200),
+  issuer: requiredText("Issuer", 200),
+  issue_date: nullableIsoDate("Issue date"),
+  credential_url: nullableUrl,
+  display_order: nonNegativeIntegerWithDefaultZero("Display order"),
+});
+
+export const contactSettingsSchema: z.ZodType<ContactSettingsPayload> = z.object({
+  email: requiredEmail,
+  phone: nullableText("Phone", 40),
+  whatsapp: nullableText("WhatsApp", 40),
+  display_order: nonNegativeIntegerWithDefaultZero("Display order"),
+});
+
+export const socialLinkSchema: z.ZodType<SocialLinkPayload> = z.object({
+  platform: requiredText("Platform", 120),
+  url: requiredUrl("URL"),
+  icon_url: nullableUrl,
+  display_order: nonNegativeIntegerWithDefaultZero("Display order"),
 });
 
 const recordIdSchema = z.string().uuid();
@@ -212,3 +325,53 @@ export function parseGlobalVisualSettingsFormData(formData: FormData) {
   });
 }
 
+export function parseExperienceFormData(formData: FormData) {
+  return experienceSchema.safeParse({
+    company_name: readText(formData, "company_name"),
+    role_title: readText(formData, "role_title"),
+    description: readText(formData, "description"),
+    start_date: readText(formData, "start_date"),
+    end_date: readText(formData, "end_date"),
+    is_current: readSwitch(formData, "is_current"),
+    display_order: readText(formData, "display_order"),
+  });
+}
+
+export function parseEducationFormData(formData: FormData) {
+  return educationSchema.safeParse({
+    institution_name: readText(formData, "institution_name"),
+    degree: readText(formData, "degree"),
+    field_of_study: readText(formData, "field_of_study"),
+    start_date: readText(formData, "start_date"),
+    end_date: readText(formData, "end_date"),
+    display_order: readText(formData, "display_order"),
+  });
+}
+
+export function parseCertificationFormData(formData: FormData) {
+  return certificationSchema.safeParse({
+    name: readText(formData, "name"),
+    issuer: readText(formData, "issuer"),
+    issue_date: readText(formData, "issue_date"),
+    credential_url: readText(formData, "credential_url"),
+    display_order: readText(formData, "display_order"),
+  });
+}
+
+export function parseContactSettingsFormData(formData: FormData) {
+  return contactSettingsSchema.safeParse({
+    email: readText(formData, "email"),
+    phone: readText(formData, "phone"),
+    whatsapp: readText(formData, "whatsapp"),
+    display_order: readText(formData, "display_order"),
+  });
+}
+
+export function parseSocialLinkFormData(formData: FormData) {
+  return socialLinkSchema.safeParse({
+    platform: readText(formData, "platform"),
+    url: readText(formData, "url"),
+    icon_url: readText(formData, "icon_url"),
+    display_order: readText(formData, "display_order"),
+  });
+}

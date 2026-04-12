@@ -6,14 +6,25 @@ import type { AdminActionState } from "@/lib/admin/action-state";
 import { initialAdminActionState } from "@/lib/admin/action-state";
 import {
   deleteAboutSection,
+  deleteCertification,
+  deleteContactSettings,
+  deleteEducation,
+  deleteExperience,
+  deleteGlobalVisualSettings,
   deleteHeroSection,
   deleteSiteSettings,
   deleteSkill,
+  deleteSocialLink,
   saveAboutSection,
+  saveCertification,
+  saveContactSettings,
+  saveEducation,
+  saveExperience,
   saveGlobalVisualSettings,
   saveHeroSection,
   saveSiteSettings,
   saveSkill,
+  saveSocialLink,
 } from "@/app/admin/actions";
 import {
   AdminActionRow,
@@ -75,6 +86,28 @@ function CmsForm({
   );
 }
 
+function withDelete({
+  canDelete,
+  recordId,
+  action,
+}: {
+  canDelete: boolean;
+  recordId: string | null;
+  action: AdminServerAction;
+}) {
+  if (!recordId || !canDelete) {
+    return null;
+  }
+
+  return (
+    <DeleteRecordForm
+      action={action}
+      recordId={recordId}
+      label="Delete permanently. This cannot be undone."
+    />
+  );
+}
+
 export function SiteSettingsForm({
   initial,
   canDelete = false,
@@ -96,7 +129,7 @@ export function SiteSettingsForm({
         submitLabel={isUpdate ? "Update Site Settings" : "Create Site Settings"}
         helperText={isUpdate ? "Editing existing record." : "Creating new record."}
       >
-        {initial?.id ? <input type="hidden" name="id" value={initial.id} /> : null}
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
         <AdminInput label="Name" name="name" required defaultValue={initial?.name ?? ""} />
         <AdminInput label="Title" name="title" required defaultValue={initial?.title ?? ""} />
         <AdminInput label="Tagline" name="tagline" defaultValue={initial?.tagline ?? ""} />
@@ -108,13 +141,7 @@ export function SiteSettingsForm({
           defaultValue={seoDefaultsValue}
         />
       </CmsForm>
-      {recordId && canDelete ? (
-        <DeleteRecordForm
-          action={deleteSiteSettings}
-          recordId={recordId}
-          label="Delete permanently. This cannot be undone."
-        />
-      ) : null}
+      {withDelete({ canDelete, recordId, action: deleteSiteSettings })}
     </div>
   );
 }
@@ -136,20 +163,14 @@ export function HeroSectionForm({
         submitLabel={isUpdate ? "Update Hero Section" : "Create Hero Section"}
         helperText={isUpdate ? "Editing existing record." : "Creating new record."}
       >
-        {initial?.id ? <input type="hidden" name="id" value={initial.id} /> : null}
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
         <AdminInput label="Headline" name="headline" required defaultValue={initial?.headline ?? ""} />
         <AdminTextarea label="Subheadline" name="subheadline" rows={4} defaultValue={initial?.subheadline ?? ""} />
         <AdminInput label="CTA Text" name="cta_text" defaultValue={initial?.cta_text ?? ""} />
         <AdminInput label="CTA Link" name="cta_link" type="url" defaultValue={initial?.cta_link ?? ""} />
         <AdminSwitch label="Is Active" name="is_active" defaultChecked={initial?.is_active ?? true} />
       </CmsForm>
-      {recordId && canDelete ? (
-        <DeleteRecordForm
-          action={deleteHeroSection}
-          recordId={recordId}
-          label="Delete permanently. This cannot be undone."
-        />
-      ) : null}
+      {withDelete({ canDelete, recordId, action: deleteHeroSection })}
     </div>
   );
 }
@@ -171,19 +192,13 @@ export function AboutSectionForm({
         submitLabel={isUpdate ? "Update About Section" : "Create About Section"}
         helperText={isUpdate ? "Editing existing record." : "Creating new record."}
       >
-        {initial?.id ? <input type="hidden" name="id" value={initial.id} /> : null}
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
         <AdminInput label="Title" name="title" required defaultValue={initial?.title ?? ""} />
         <AdminTextarea label="Content" name="content" required rows={8} defaultValue={initial?.content ?? ""} />
         <AdminInput label="Image URL" name="image_url" type="url" defaultValue={initial?.image_url ?? ""} />
         <AdminSwitch label="Is Active" name="is_active" defaultChecked={initial?.is_active ?? true} />
       </CmsForm>
-      {recordId && canDelete ? (
-        <DeleteRecordForm
-          action={deleteAboutSection}
-          recordId={recordId}
-          label="Delete permanently. This cannot be undone."
-        />
-      ) : null}
+      {withDelete({ canDelete, recordId, action: deleteAboutSection })}
     </div>
   );
 }
@@ -205,7 +220,7 @@ export function SkillForm({
         submitLabel={isUpdate ? "Update Skill" : "Create Skill"}
         helperText={isUpdate ? "Editing existing record." : "Creating new record."}
       >
-        {initial?.id ? <input type="hidden" name="id" value={initial.id} /> : null}
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
         <AdminInput label="Skill Name" name="name" required defaultValue={initial?.name ?? ""} />
         <AdminInput label="Category" name="category" required defaultValue={initial?.category ?? ""} />
         <AdminInput label="Icon URL" name="icon_url" type="url" defaultValue={initial?.icon_url ?? ""} />
@@ -225,23 +240,206 @@ export function SkillForm({
           defaultValue={initial?.display_order ?? 0}
         />
       </CmsForm>
-      {recordId && canDelete ? (
-        <DeleteRecordForm
-          action={deleteSkill}
-          recordId={recordId}
-          label="Delete permanently. This cannot be undone."
+      {withDelete({ canDelete, recordId, action: deleteSkill })}
+    </div>
+  );
+}
+
+export function ExperienceForm({
+  initial,
+  canDelete = false,
+}: {
+  initial: Tables<"experiences"> | null;
+  canDelete?: boolean;
+}) {
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
+
+  return (
+    <div className="space-y-3">
+      <CmsForm
+        action={saveExperience}
+        submitLabel={isUpdate ? "Update Experience" : "Create Experience"}
+        helperText={isUpdate ? "Editing existing record." : "Creating new record."}
+      >
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
+        <AdminInput label="Company Name" name="company_name" required defaultValue={initial?.company_name ?? ""} />
+        <AdminInput label="Role Title" name="role_title" required defaultValue={initial?.role_title ?? ""} />
+        <AdminTextarea label="Description" name="description" rows={6} defaultValue={initial?.description ?? ""} />
+        <AdminInput label="Start Date" name="start_date" type="date" required defaultValue={initial?.start_date ?? ""} />
+        <AdminInput label="End Date" name="end_date" type="date" defaultValue={initial?.end_date ?? ""} />
+        <AdminSwitch label="Currently Working Here" name="is_current" defaultChecked={initial?.is_current ?? false} />
+        <AdminInput
+          label="Display Order"
+          name="display_order"
+          type="number"
+          min={0}
+          defaultValue={initial?.display_order ?? 0}
         />
-      ) : null}
+      </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteExperience })}
+    </div>
+  );
+}
+
+export function EducationForm({
+  initial,
+  canDelete = false,
+}: {
+  initial: Tables<"education"> | null;
+  canDelete?: boolean;
+}) {
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
+
+  return (
+    <div className="space-y-3">
+      <CmsForm
+        action={saveEducation}
+        submitLabel={isUpdate ? "Update Education" : "Create Education"}
+        helperText={isUpdate ? "Editing existing record." : "Creating new record."}
+      >
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
+        <AdminInput
+          label="Institution Name"
+          name="institution_name"
+          required
+          defaultValue={initial?.institution_name ?? ""}
+        />
+        <AdminInput label="Degree" name="degree" required defaultValue={initial?.degree ?? ""} />
+        <AdminInput label="Field of Study" name="field_of_study" defaultValue={initial?.field_of_study ?? ""} />
+        <AdminInput label="Start Date" name="start_date" type="date" defaultValue={initial?.start_date ?? ""} />
+        <AdminInput label="End Date" name="end_date" type="date" defaultValue={initial?.end_date ?? ""} />
+        <AdminInput
+          label="Display Order"
+          name="display_order"
+          type="number"
+          min={0}
+          defaultValue={initial?.display_order ?? 0}
+        />
+      </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteEducation })}
+    </div>
+  );
+}
+
+export function CertificationForm({
+  initial,
+  canDelete = false,
+}: {
+  initial: Tables<"certifications"> | null;
+  canDelete?: boolean;
+}) {
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
+
+  return (
+    <div className="space-y-3">
+      <CmsForm
+        action={saveCertification}
+        submitLabel={isUpdate ? "Update Certification" : "Create Certification"}
+        helperText={isUpdate ? "Editing existing record." : "Creating new record."}
+      >
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
+        <AdminInput label="Certification Name" name="name" required defaultValue={initial?.name ?? ""} />
+        <AdminInput label="Issuer" name="issuer" required defaultValue={initial?.issuer ?? ""} />
+        <AdminInput label="Issue Date" name="issue_date" type="date" defaultValue={initial?.issue_date ?? ""} />
+        <AdminInput
+          label="Credential URL"
+          name="credential_url"
+          type="url"
+          defaultValue={initial?.credential_url ?? ""}
+        />
+        <AdminInput
+          label="Display Order"
+          name="display_order"
+          type="number"
+          min={0}
+          defaultValue={initial?.display_order ?? 0}
+        />
+      </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteCertification })}
+    </div>
+  );
+}
+
+export function ContactSettingsForm({
+  initial,
+  canDelete = false,
+}: {
+  initial: Tables<"contact_settings"> | null;
+  canDelete?: boolean;
+}) {
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
+
+  return (
+    <div className="space-y-3">
+      <CmsForm
+        action={saveContactSettings}
+        submitLabel={isUpdate ? "Update Contact Settings" : "Create Contact Settings"}
+        helperText={isUpdate ? "Editing existing record." : "Creating new record."}
+      >
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
+        <AdminInput label="Email" name="email" type="email" required defaultValue={initial?.email ?? ""} />
+        <AdminInput label="Phone" name="phone" defaultValue={initial?.phone ?? ""} />
+        <AdminInput label="WhatsApp" name="whatsapp" defaultValue={initial?.whatsapp ?? ""} />
+        <AdminInput
+          label="Display Order"
+          name="display_order"
+          type="number"
+          min={0}
+          defaultValue={initial?.display_order ?? 0}
+        />
+      </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteContactSettings })}
+    </div>
+  );
+}
+
+export function SocialLinkForm({
+  initial,
+  canDelete = false,
+}: {
+  initial: Tables<"social_links"> | null;
+  canDelete?: boolean;
+}) {
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
+
+  return (
+    <div className="space-y-3">
+      <CmsForm
+        action={saveSocialLink}
+        submitLabel={isUpdate ? "Update Social Link" : "Create Social Link"}
+        helperText={isUpdate ? "Editing existing record." : "Creating new record."}
+      >
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
+        <AdminInput label="Platform" name="platform" required defaultValue={initial?.platform ?? ""} />
+        <AdminInput label="URL" name="url" type="url" required defaultValue={initial?.url ?? ""} />
+        <AdminInput label="Icon URL" name="icon_url" type="url" defaultValue={initial?.icon_url ?? ""} />
+        <AdminInput
+          label="Display Order"
+          name="display_order"
+          type="number"
+          min={0}
+          defaultValue={initial?.display_order ?? 0}
+        />
+      </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteSocialLink })}
     </div>
   );
 }
 
 export function GlobalVisualSettingsForm({
   initial,
+  canDelete = false,
 }: {
   initial: Tables<"global_visual_settings"> | null;
+  canDelete?: boolean;
 }) {
-  const isUpdate = Boolean(initial?.id);
+  const recordId = initial?.id ?? null;
+  const isUpdate = Boolean(recordId);
 
   return (
     <div className="space-y-3">
@@ -250,7 +448,7 @@ export function GlobalVisualSettingsForm({
         submitLabel={isUpdate ? "Update Visual Settings" : "Create Visual Settings"}
         helperText={isUpdate ? "Editing existing record." : "Creating new record."}
       >
-        {initial?.id ? <input type="hidden" name="id" value={initial.id} /> : null}
+        {recordId ? <input type="hidden" name="id" value={recordId} /> : null}
         <AdminSwitch
           label="Sounds Enabled"
           name="sounds_enabled"
@@ -287,6 +485,8 @@ export function GlobalVisualSettingsForm({
           ]}
         />
       </CmsForm>
+      {withDelete({ canDelete, recordId, action: deleteGlobalVisualSettings })}
     </div>
   );
 }
+

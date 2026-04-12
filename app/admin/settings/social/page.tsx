@@ -1,10 +1,48 @@
-import { PageContainer } from '@/components/admin/page-container';
-import { EmptyState } from '@/components/admin/state-displays';
+import { SocialLinkForm } from "@/components/admin/forms/section-forms";
+import { PageContainer } from "@/components/admin/page-container";
+import { EmptyState, ErrorState } from "@/components/admin/state-displays";
+import { createClient } from "@/utils/supabase/server";
 
-export default function SettingsSocialPage() {
+export default async function SettingsSocialPage() {
+  const supabase = await createClient();
+  const [{ data, error }, { data: canDeleteData, error: canDeleteError }] = await Promise.all([
+    supabase
+      .from("social_links")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase.rpc("is_admin"),
+  ]);
+
+  if (error) {
+    return (
+      <PageContainer title="settings/social">
+        <ErrorState error={error.message} />
+      </PageContainer>
+    );
+  }
+
+  const canDelete = !canDeleteError && Boolean(canDeleteData);
+
   return (
     <PageContainer title="settings/social">
-      <EmptyState message="This section is not yet implemented. Phase 2 functionality pending." />
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Create New</h2>
+        <SocialLinkForm initial={null} />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Existing Records</h2>
+        {data.length === 0 ? (
+          <EmptyState message="No social link records found yet. Create one to get started." />
+        ) : (
+          <div className="space-y-5">
+            {data.map((record) => (
+              <SocialLinkForm key={record.id} initial={record} canDelete={canDelete} />
+            ))}
+          </div>
+        )}
+      </section>
     </PageContainer>
   );
 }

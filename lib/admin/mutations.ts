@@ -8,7 +8,12 @@ export type CmsTable =
   | "hero_sections"
   | "about_sections"
   | "skills"
-  | "global_visual_settings";
+  | "global_visual_settings"
+  | "experiences"
+  | "education"
+  | "certifications"
+  | "contact_settings"
+  | "social_links";
 
 type RunAdminMutationParams<T extends CmsTable> = {
   table: T;

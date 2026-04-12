@@ -4,10 +4,15 @@ import type { AdminActionState } from "@/lib/admin/action-state";
 import { getValidationErrorState } from "@/lib/admin/action-state";
 import { runAdminDelete, runAdminMutation } from "@/lib/admin/mutations";
 import {
+  parseCertificationFormData,
+  parseContactSettingsFormData,
+  parseEducationFormData,
+  parseExperienceFormData,
   extractRecordId,
   parseAboutSectionFormData,
   parseGlobalVisualSettingsFormData,
   parseHeroSectionFormData,
+  parseSocialLinkFormData,
   parseSiteSettingsFormData,
   parseSkillFormData,
 } from "@/lib/admin/schemas";
@@ -106,6 +111,96 @@ export async function saveGlobalVisualSettings(
   });
 }
 
+export async function saveExperience(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const parsed = parseExperienceFormData(formData);
+  if (!parsed.success) {
+    return toValidationState(parsed);
+  }
+
+  return runAdminMutation({
+    table: "experiences",
+    payload: parsed.data,
+    recordId: extractRecordId(formData),
+    successMessage: "Experience saved.",
+    revalidatePaths: ["/admin/experience", "/"],
+  });
+}
+
+export async function saveEducation(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const parsed = parseEducationFormData(formData);
+  if (!parsed.success) {
+    return toValidationState(parsed);
+  }
+
+  return runAdminMutation({
+    table: "education",
+    payload: parsed.data,
+    recordId: extractRecordId(formData),
+    successMessage: "Education saved.",
+    revalidatePaths: ["/admin/education", "/"],
+  });
+}
+
+export async function saveCertification(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const parsed = parseCertificationFormData(formData);
+  if (!parsed.success) {
+    return toValidationState(parsed);
+  }
+
+  return runAdminMutation({
+    table: "certifications",
+    payload: parsed.data,
+    recordId: extractRecordId(formData),
+    successMessage: "Certification saved.",
+    revalidatePaths: ["/admin/certifications", "/"],
+  });
+}
+
+export async function saveContactSettings(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const parsed = parseContactSettingsFormData(formData);
+  if (!parsed.success) {
+    return toValidationState(parsed);
+  }
+
+  return runAdminMutation({
+    table: "contact_settings",
+    payload: parsed.data,
+    recordId: extractRecordId(formData),
+    successMessage: "Contact settings saved.",
+    revalidatePaths: ["/admin/settings/contact", "/"],
+  });
+}
+
+export async function saveSocialLink(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const parsed = parseSocialLinkFormData(formData);
+  if (!parsed.success) {
+    return toValidationState(parsed);
+  }
+
+  return runAdminMutation({
+    table: "social_links",
+    payload: parsed.data,
+    recordId: extractRecordId(formData),
+    successMessage: "Social link saved.",
+    revalidatePaths: ["/admin/settings/social", "/"],
+  });
+}
+
 function invalidDeleteState(): AdminActionState {
   return {
     status: "error",
@@ -179,5 +274,107 @@ export async function deleteSkill(
     recordId,
     successMessage: "Skill deleted.",
     revalidatePaths: ["/admin/skills", "/"],
+  });
+}
+
+export async function deleteGlobalVisualSettings(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "global_visual_settings",
+    recordId,
+    successMessage: "Visual settings deleted.",
+    revalidatePaths: ["/admin/settings/visual", "/"],
+  });
+}
+
+export async function deleteExperience(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "experiences",
+    recordId,
+    successMessage: "Experience deleted.",
+    revalidatePaths: ["/admin/experience", "/"],
+  });
+}
+
+export async function deleteEducation(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "education",
+    recordId,
+    successMessage: "Education deleted.",
+    revalidatePaths: ["/admin/education", "/"],
+  });
+}
+
+export async function deleteCertification(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "certifications",
+    recordId,
+    successMessage: "Certification deleted.",
+    revalidatePaths: ["/admin/certifications", "/"],
+  });
+}
+
+export async function deleteContactSettings(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "contact_settings",
+    recordId,
+    successMessage: "Contact settings deleted.",
+    revalidatePaths: ["/admin/settings/contact", "/"],
+  });
+}
+
+export async function deleteSocialLink(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const recordId = extractRecordId(formData);
+  if (!recordId) {
+    return invalidDeleteState();
+  }
+
+  return runAdminDelete({
+    table: "social_links",
+    recordId,
+    successMessage: "Social link deleted.",
+    revalidatePaths: ["/admin/settings/social", "/"],
   });
 }

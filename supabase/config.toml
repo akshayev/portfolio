@@ -1,0 +1,14 @@
+[api]
+port = 18000
+
+[db]
+port = 18001
+
+[studio]
+port = 18002
+
+[inbucket]
+port = 18003
+
+[analytics]
+enabled = false

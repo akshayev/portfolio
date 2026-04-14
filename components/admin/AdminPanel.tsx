@@ -21,6 +21,34 @@ type TableResponse = {
   error?: unknown;
 };
 
+function isAllowedErrorCode(value: string): boolean {
+  return [
+    "forbidden",
+    "not_found",
+    "invalid_json",
+    "invalid_payload",
+    "missing_id",
+    "invalid_id",
+    "empty_update",
+    "rate_limited",
+    "service_unavailable",
+  ].includes(value);
+}
+
+function toSafeUiError(error: unknown): string {
+  const value = coerceString(error);
+
+  if (!value) {
+    return "Request failed.";
+  }
+
+  if (!isAllowedErrorCode(value)) {
+    return "Request failed.";
+  }
+
+  return value.replaceAll("_", " ");
+}
+
 function coerceString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -135,7 +163,7 @@ export function AdminPanel({ initialTable = "hero" }: AdminPanelProps) {
       const payload = (await response.json()) as TableResponse;
 
       if (!response.ok || !Array.isArray(payload.items)) {
-        throw new Error(coerceString(payload.error) || "Unable to load records.");
+        throw new Error(toSafeUiError(payload.error));
       }
 
       const nextItems = payload.items.filter(
@@ -213,7 +241,7 @@ export function AdminPanel({ initialTable = "hero" }: AdminPanelProps) {
       const payload = (await response.json()) as { error?: unknown };
 
       if (!response.ok) {
-        throw new Error(coerceString(payload.error) || "Save failed.");
+        throw new Error(toSafeUiError(payload.error));
       }
 
       setMessage(isEditing ? "Record updated." : "Record created.");
@@ -243,7 +271,7 @@ export function AdminPanel({ initialTable = "hero" }: AdminPanelProps) {
       const payload = (await response.json()) as { error?: unknown };
 
       if (!response.ok) {
-        throw new Error(coerceString(payload.error) || "Delete failed.");
+        throw new Error(toSafeUiError(payload.error));
       }
 
       setMessage("Record deleted.");

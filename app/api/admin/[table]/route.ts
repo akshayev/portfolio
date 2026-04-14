@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/auth/admin";
 import { adminTableConfig, isAdminTableName } from "@/lib/content/admin-config";
 import { sanitizeAdminValues } from "@/lib/content/admin-sanitize";
+import { logAuditEvent } from "@/lib/security/audit";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp, getRequestId, isSameOriginRequest, readJsonBody } from "@/lib/security/request";
 
 type RouteContext = {
   params: Promise<{ table: string }>;
@@ -37,6 +40,16 @@ type TableChain = {
   };
 };
 
+type ResolvedAdminContext = {
+  table: string;
+  client: unknown;
+  ip: string;
+  requestId: string;
+};
+
+const ADMIN_ROUTE = "/api/admin/[table]";
+const MAX_PAYLOAD_BYTES = 24 * 1024;
+
 function fromTable(client: unknown, table: string): TableChain {
   return (client as { from: (name: string) => TableChain }).from(table);
 }
@@ -58,6 +71,54 @@ function parseId(request: Request): string | null {
   return id && id.trim() ? id : null;
 }
 
+function validateId(id: string): boolean {
+  return /^[a-zA-Z0-9-]{8,64}$/.test(id);
+}
+
+function deny(message: string, status: number, retryAfterSeconds?: number) {
+  return NextResponse.json(
+    { ok: false, error: message },
+    {
+      status,
+      headers: retryAfterSeconds
+        ? {
+            "retry-after": String(retryAfterSeconds),
+          }
+        : undefined,
+    },
+  );
+}
+
+function serverError(action: string, requestId: string, ip: string, error: unknown) {
+  logAuditEvent("error", {
+    route: ADMIN_ROUTE,
+    action,
+    message: "Internal server error",
+    requestId,
+    ip,
+    metadata: { error },
+  });
+
+  return deny("internal_error", 500);
+}
+
+function validateRateLimit(request: Request, operation: string, identifier: string) {
+  const ip = getClientIp(request);
+  const key = `${ADMIN_ROUTE}:${operation}:${identifier}:${ip}`;
+
+  const result = checkRateLimit({
+    key,
+    limit: 120,
+    windowMs: 60_000,
+  });
+
+  if (!result.ok) {
+    return deny("rate_limited", 429, result.retryAfterSeconds);
+  }
+
+  return null;
+}
+
 async function resolveTable(paramsPromise: RouteContext["params"]) {
   const { table } = await paramsPromise;
 
@@ -68,34 +129,69 @@ async function resolveTable(paramsPromise: RouteContext["params"]) {
   return table;
 }
 
-async function requireAdmin(paramsPromise: RouteContext["params"]) {
+async function requireAdmin(request: Request, paramsPromise: RouteContext["params"]) {
   const table = await resolveTable(paramsPromise);
+  const ip = getClientIp(request);
+  const requestId = getRequestId(request);
 
   if (!table) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    logAuditEvent("warn", {
+      route: ADMIN_ROUTE,
+      action: "resolve_table",
+      message: "Invalid table requested",
+      requestId,
+      ip,
+    });
+
+    return deny("not_found", 404);
+  }
+
+  const authRateLimit = validateRateLimit(request, "auth-check", table);
+
+  if (authRateLimit) {
+    return authRateLimit;
   }
 
   const context = await getAdminContext();
 
   if (!context.client) {
-    return NextResponse.json({ ok: false, error: "missing_env" }, { status: 503 });
+    logAuditEvent("error", {
+      route: ADMIN_ROUTE,
+      action: "auth-check",
+      message: "Missing Supabase environment",
+      requestId,
+      ip,
+    });
+
+    return deny("service_unavailable", 503);
   }
 
   if (!context.isAdmin) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    logAuditEvent("warn", {
+      route: ADMIN_ROUTE,
+      action: "auth-check",
+      message: "Forbidden admin API attempt",
+      requestId,
+      ip,
+      metadata: {
+        reason: context.reason,
+      },
+    });
+
+    return deny("forbidden", 403);
   }
 
-  return { table, client: context.client };
+  return { table, client: context.client, ip, requestId } satisfies ResolvedAdminContext;
 }
 
-export async function GET(_request: Request, context: RouteContext) {
-  const resolved = await requireAdmin(context.params);
+export async function GET(request: Request, context: RouteContext) {
+  const resolved = await requireAdmin(request, context.params);
 
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
-  const { table, client } = resolved;
+  const { table, client, ip, requestId } = resolved;
   const config = adminTableConfig[table];
 
   const { data, error } = config.singleton
@@ -112,32 +208,48 @@ export async function GET(_request: Request, context: RouteContext) {
         .limit(500);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return serverError("list", requestId, ip, error);
   }
 
   return NextResponse.json({ ok: true, items: data, singleton: config.singleton });
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const resolved = await requireAdmin(context.params);
+  const resolved = await requireAdmin(request, context.params);
 
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
-  const { table, client } = resolved;
+  const { table, client, ip, requestId } = resolved;
   const config = adminTableConfig[table];
 
-  let payload: BodyPayload;
+  if (!isSameOriginRequest(request)) {
+    logAuditEvent("warn", {
+      route: ADMIN_ROUTE,
+      action: "create",
+      message: "Rejected non same-origin POST",
+      requestId,
+      ip,
+    });
 
-  try {
-    payload = (await request.json()) as BodyPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return deny("forbidden", 403);
+  }
+
+  const writeRateLimit = validateRateLimit(request, "create", table);
+
+  if (writeRateLimit) {
+    return writeRateLimit;
+  }
+
+  const payload = await readJsonBody<BodyPayload>(request, MAX_PAYLOAD_BYTES);
+
+  if (!payload) {
+    return deny("invalid_json", 400);
   }
 
   if (!payload.values || typeof payload.values !== "object" || Array.isArray(payload.values)) {
-    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+    return deny("invalid_payload", 400);
   }
 
   let values: Record<string, unknown>;
@@ -145,8 +257,8 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     values = sanitizeAdminValues(table, payload.values as Record<string, unknown>, "create");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid values";
-    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+    const message = error instanceof Error ? error.message : "invalid_values";
+    return deny(message, 400);
   }
 
   if (config.singleton) {
@@ -157,7 +269,7 @@ export async function POST(request: Request, context: RouteContext) {
       .limit(1);
 
     if (existingError) {
-      return NextResponse.json({ ok: false, error: existingError.message }, { status: 500 });
+      return serverError("create-singleton-read", requestId, ip, existingError);
     }
 
     const existingRows = toRecordArray(existing);
@@ -166,7 +278,7 @@ export async function POST(request: Request, context: RouteContext) {
       const id = typeof existingRows[0]?.id === "string" ? existingRows[0].id : "";
 
       if (!id) {
-        return NextResponse.json({ ok: false, error: "invalid_existing_record" }, { status: 500 });
+        return serverError("create-singleton-id", requestId, ip, "invalid_existing_record");
       }
 
       const { data, error } = await fromTable(client, table)
@@ -176,11 +288,10 @@ export async function POST(request: Request, context: RouteContext) {
         .limit(1);
 
       if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        return serverError("create-singleton-update", requestId, ip, error);
       }
 
       const rows = toRecordArray(data);
-
       return NextResponse.json({ ok: true, item: rows[0] ?? null });
     }
   }
@@ -188,44 +299,63 @@ export async function POST(request: Request, context: RouteContext) {
   const { data, error } = await fromTable(client, table).insert(values).select("*").limit(1);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return serverError("create", requestId, ip, error);
   }
 
   const rows = toRecordArray(data);
-
   return NextResponse.json({ ok: true, item: rows[0] ?? null });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const resolved = await requireAdmin(context.params);
+  const resolved = await requireAdmin(request, context.params);
 
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
-  const { table, client } = resolved;
+  const { table, client, ip, requestId } = resolved;
   const id = parseId(request);
 
-  if (!id) {
-    return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+  if (!isSameOriginRequest(request)) {
+    logAuditEvent("warn", {
+      route: ADMIN_ROUTE,
+      action: "update",
+      message: "Rejected non same-origin PATCH",
+      requestId,
+      ip,
+    });
+
+    return deny("forbidden", 403);
   }
 
-  let payload: BodyPayload;
+  const writeRateLimit = validateRateLimit(request, "update", table);
 
-  try {
-    payload = (await request.json()) as BodyPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  if (writeRateLimit) {
+    return writeRateLimit;
+  }
+
+  if (!id) {
+    return deny("missing_id", 400);
+  }
+
+  if (!validateId(id)) {
+    return deny("invalid_id", 400);
+  }
+
+  const payload = await readJsonBody<BodyPayload>(request, MAX_PAYLOAD_BYTES);
+
+  if (!payload) {
+    return deny("invalid_json", 400);
   }
 
   if (!payload.values || typeof payload.values !== "object" || Array.isArray(payload.values)) {
-    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+    return deny("invalid_payload", 400);
   }
 
   const values = sanitizeAdminValues(table, payload.values as Record<string, unknown>, "update");
 
   if (!Object.keys(values).length) {
-    return NextResponse.json({ ok: false, error: "empty_update" }, { status: 400 });
+    return deny("empty_update", 400);
   }
 
   const { data, error } = await fromTable(client, table)
@@ -235,38 +365,58 @@ export async function PATCH(request: Request, context: RouteContext) {
     .limit(1);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return serverError("update", requestId, ip, error);
   }
 
   const rows = toRecordArray(data);
-
   return NextResponse.json({ ok: true, item: rows[0] ?? null });
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const resolved = await requireAdmin(context.params);
+  const resolved = await requireAdmin(request, context.params);
 
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
-  const { table, client } = resolved;
+  const { table, client, ip, requestId } = resolved;
   const config = adminTableConfig[table];
-
-  if (config.singleton) {
-    return NextResponse.json({ ok: false, error: "singleton_delete_disallowed" }, { status: 400 });
-  }
-
   const id = parseId(request);
 
+  if (!isSameOriginRequest(request)) {
+    logAuditEvent("warn", {
+      route: ADMIN_ROUTE,
+      action: "delete",
+      message: "Rejected non same-origin DELETE",
+      requestId,
+      ip,
+    });
+
+    return deny("forbidden", 403);
+  }
+
+  const writeRateLimit = validateRateLimit(request, "delete", table);
+
+  if (writeRateLimit) {
+    return writeRateLimit;
+  }
+
+  if (config.singleton) {
+    return deny("singleton_delete_disallowed", 400);
+  }
+
   if (!id) {
-    return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+    return deny("missing_id", 400);
+  }
+
+  if (!validateId(id)) {
+    return deny("invalid_id", 400);
   }
 
   const { error } = await fromTable(client, table).delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return serverError("delete", requestId, ip, error);
   }
 
   return NextResponse.json({ ok: true });

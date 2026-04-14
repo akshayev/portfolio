@@ -15,6 +15,9 @@ This project includes SQL migrations, row-level security policies, and bootstrap
 3. `supabase/migrations/202604130003_rls_policies.sql`
 4. `supabase/migrations/202604130004_app_compat_schema.sql`
 5. `supabase/migrations/202604130005_app_compat_rls.sql`
+6. `supabase/migrations/202604140006_contact_messages.sql`
+7. `supabase/migrations/202604140007_contact_messages_retention.sql`
+8. `supabase/migrations/202604140008_contact_messages_archive.sql`
 
 ## Apply migrations
 
@@ -97,3 +100,51 @@ Example rollback workflow:
 4. Apply via `supabase db push`.
 
 Avoid manual drift in production databases; keep rollback actions migration-based.
+
+## Security notes
+
+- App-level hardening (headers, API limits, origin checks) is documented in `docs/security-hardening.md`.
+- Current rate limiting is in-memory and should be replaced with shared storage for horizontally scaled production.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` and `TELEGRAM_BOT_TOKEN` server-only; never expose them in client code, docs with real values, or logs.
+
+## Contact message table and policies
+
+Apply migration `supabase/migrations/202604140006_contact_messages.sql` to provision:
+
+- `public.contact_messages` table
+- anon insert policy for public form submissions
+- service role full-access policy
+
+Expected behavior:
+
+- `anon`: insert allowed, select/update/delete denied
+- `authenticated`: denied unless using service role
+- `service_role`: full access
+
+## Contact message retention
+
+Migration `supabase/migrations/202604140007_contact_messages_retention.sql` adds:
+
+- function `public.purge_old_contact_messages()`
+- daily cron schedule `purge_old_contact_messages_daily` (if `pg_cron` is available)
+- retention policy deleting rows older than 180 days
+
+Migration `supabase/migrations/202604140008_contact_messages_archive.sql` upgrades this to archive-before-delete:
+
+- `public.contact_messages_archive` table (`archived_at` included)
+- `public.purge_old_contact_messages()` now archives old rows first, then deletes from live table in the same transaction
+- existing cron schedule remains unchanged
+
+Manual run:
+
+```sql
+select public.purge_old_contact_messages();
+```
+
+Cron check:
+
+```sql
+select jobid, jobname, schedule, active
+from cron.job
+where jobname = 'purge_old_contact_messages_daily';
+```

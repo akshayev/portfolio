@@ -17,6 +17,19 @@ import { normalizeExternalUrl } from "@/utils/url";
 
 type ContentClient = SupabaseClient<Database>;
 
+type QueryError = {
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
+
+function throwQueryError(scope: string, error: QueryError): never {
+  const extras = [error.code, error.details, error.hint].filter(Boolean).join(" | ");
+  const suffix = extras ? ` (${extras})` : "";
+  throw new Error(`[${scope}] ${error.message}${suffix}`);
+}
+
 async function fetchHero(client: ContentClient): Promise<Tables<"hero"> | null> {
   const { data, error } = await client
     .from("hero")
@@ -26,7 +39,7 @@ async function fetchHero(client: ContentClient): Promise<Tables<"hero"> | null> 
     .limit(1);
 
   if (error) {
-    throw error;
+    throwQueryError("hero", error);
   }
 
   return (data?.[0] ?? null) as Tables<"hero"> | null;
@@ -41,7 +54,7 @@ async function fetchAbout(client: ContentClient): Promise<Tables<"about"> | null
     .limit(1);
 
   if (error) {
-    throw error;
+    throwQueryError("about", error);
   }
 
   return (data?.[0] ?? null) as Tables<"about"> | null;
@@ -56,7 +69,7 @@ async function fetchSettings(client: ContentClient): Promise<Tables<"settings"> 
     .limit(1);
 
   if (error) {
-    throw error;
+    throwQueryError("settings", error);
   }
 
   return (data?.[0] ?? null) as Tables<"settings"> | null;
@@ -71,7 +84,7 @@ async function fetchSkills(client: ContentClient): Promise<Tables<"skills">[]> {
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("skills", error);
   }
 
   return (data ?? []) as Tables<"skills">[];
@@ -86,7 +99,7 @@ async function fetchExperience(client: ContentClient): Promise<Tables<"experienc
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("experience", error);
   }
 
   return (data ?? []) as Tables<"experience">[];
@@ -101,7 +114,7 @@ async function fetchEducation(client: ContentClient): Promise<Tables<"education"
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("education", error);
   }
 
   return (data ?? []) as Tables<"education">[];
@@ -116,7 +129,7 @@ async function fetchProjects(client: ContentClient): Promise<Tables<"projects">[
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("projects", error);
   }
 
   return (data ?? []) as Tables<"projects">[];
@@ -131,7 +144,7 @@ async function fetchPublications(client: ContentClient): Promise<Tables<"publica
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("publications", error);
   }
 
   return (data ?? []) as Tables<"publications">[];
@@ -146,7 +159,7 @@ async function fetchCertifications(client: ContentClient): Promise<Tables<"certi
     .order("id", { ascending: true });
 
   if (error) {
-    throw error;
+    throwQueryError("certifications", error);
   }
 
   return (data ?? []) as Tables<"certifications">[];

@@ -3,11 +3,23 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
-
 type LoginFormProps = {
   nextPath: string;
 };
+
+const LOGIN_ERROR_MESSAGE = "Invalid login credentials.";
+
+function toUiError(error: unknown): string {
+  if (error === "rate_limited") {
+    return "Too many attempts. Please try again in a moment.";
+  }
+
+  if (error === "service_unavailable") {
+    return "Authentication service unavailable. Try again shortly.";
+  }
+
+  return LOGIN_ERROR_MESSAGE;
+}
 
 export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter();
@@ -23,22 +35,26 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     setError(null);
 
     try {
-      const client = getBrowserSupabaseClient();
-      const { error: signInError } = await client.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (signInError) {
-        setError(signInError.message);
+      const payload = (await response.json()) as { error?: unknown };
+
+      if (!response.ok) {
+        setError(toUiError(payload.error));
         return;
       }
 
       router.push(nextPath);
       router.refresh();
     } catch (unknownError) {
-      const message = unknownError instanceof Error ? unknownError.message : "Unable to sign in.";
-      setError(message);
+      void unknownError;
+      setError(LOGIN_ERROR_MESSAGE);
     } finally {
       setLoading(false);
     }

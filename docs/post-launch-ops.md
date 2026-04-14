@@ -7,6 +7,14 @@ Set these variables before running in production:
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+Server-only secrets:
+
+- `SUPABASE_SERVICE_ROLE_KEY` and `TELEGRAM_BOT_TOKEN` must never be exposed in client code or `NEXT_PUBLIC_*` variables.
+- Do not paste real secret values in docs, chat logs, screenshots, or commit history.
 
 ## Supabase setup checklist
 
@@ -28,8 +36,10 @@ pnpm build
 ## Analytics and monitoring
 
 - Client events are sent to `POST /api/analytics`.
+- Contact form submissions are sent to `POST /api/contact` and forwarded to Telegram.
 - Public content fetch failures are logged with `reportPublicDataError`.
 - In development, analytics payloads print to server console.
+- Contact message retention cleanup runs daily (180-day window) via `public.purge_old_contact_messages()`, archiving into `public.contact_messages_archive` before delete.
 
 ## Content operations
 
@@ -53,3 +63,4 @@ After deploy, verify:
 3. `/login` authenticates successfully.
 4. `/admin` allows authorized CRUD and blocks unauthorized users.
 5. Contact and external link clicks hit `POST /api/analytics`.
+6. Contact form submission stores row in `public.contact_messages` and triggers Telegram notification.

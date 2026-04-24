@@ -36,23 +36,6 @@ export async function getAdminContext(): Promise<AdminContext> {
     };
   }
 
-  const { data, error } = await client
-    .from("admin_users")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .order("user_id", { ascending: true })
-    .limit(1);
-
-  if (error || !data.length) {
-    return {
-      client,
-      user,
-      isAdmin: false,
-      reason: "not-admin",
-    };
-  }
-
   return {
     client,
     user,

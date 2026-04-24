@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 import {
   adminTableConfig,
@@ -367,6 +368,67 @@ export function AdminPanel({ initialTable = "hero" }: AdminPanelProps) {
                       className="h-4 w-4 rounded border-zinc-600 bg-zinc-900"
                     />
                     {field.label}
+                  </label>
+                );
+              }
+
+              if (field.type === "image") {
+                return (
+                  <label key={field.key} className="space-y-2 text-sm text-zinc-300">
+                    <span>{field.label}</span>
+                    <div className="flex items-center gap-4">
+                      {typeof value === "string" && value ? (
+                        <img
+                          src={value}
+                          alt="Preview"
+                          className="h-12 w-12 shrink-0 rounded-full object-cover border border-zinc-700/80"
+                        />
+                      ) : null}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={saving || loading}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+
+                          try {
+                            setSaving(true);
+                            setError(null);
+                            const supabase = getBrowserSupabaseClient();
+
+                            const {
+                              data: { user },
+                            } = await supabase.auth.getUser();
+                            if (!user) {
+                              throw new Error("Not authenticated");
+                            }
+
+                            const fileExt = file.name.split(".").pop();
+                            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                            const filePath = `${user.id}/${fileName}`;
+
+                            const { error: uploadError } = await supabase.storage
+                              .from("portraits")
+                              .upload(filePath, file);
+
+                            if (uploadError) {
+                              throw uploadError;
+                            }
+
+                            const { data } = supabase.storage.from("portraits").getPublicUrl(filePath);
+
+                            onFieldChange(field, data.publicUrl);
+                            setMessage("Image uploaded successfully. Save the record to keep changes.");
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : "Failed to upload image.");
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        className="flex-1 rounded-xl border border-zinc-600 bg-zinc-950/75 px-3 py-2 text-zinc-100 outline-none transition focus:border-amber-300/70 file:mr-4 file:rounded-full file:border-0 file:bg-amber-300/10 file:px-4 file:py-1 file:text-sm file:font-semibold file:text-amber-200 hover:file:bg-amber-300/20 disabled:opacity-60"
+                      />
+                    </div>
                   </label>
                 );
               }

@@ -14,6 +14,16 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default async function Home() {
-  const content = await getPortfolioContent();
+  const ownerId = process.env.PORTFOLIO_OWNER_USER_ID;
+  
+  if (!ownerId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-zinc-500">PORTFOLIO_OWNER_USER_ID is not configured.</p>
+      </div>
+    );
+  }
+
+  const content = await getPortfolioContent(ownerId);
   return <PortfolioPage content={content} />;
 }

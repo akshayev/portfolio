@@ -11,6 +11,8 @@ export const fallbackPortfolioContent: PortfolioContent = {
     cta_label: "View projects",
     cta_url: "https://example.com/work",
     portrait_url: null,
+    is_active: true,
+    user_id: null,
   },
   about: {
     id: "about-fallback",
@@ -18,6 +20,8 @@ export const fallbackPortfolioContent: PortfolioContent = {
     updated_at: "2026-01-01T00:00:00.000Z",
     bio: "Senior full-stack engineer focused on platform architecture, data-heavy products, and high-fidelity user experiences.",
     location: "Remote",
+    is_active: true,
+    user_id: null,
   },
   settings: {
     id: "settings-fallback",
@@ -33,6 +37,8 @@ export const fallbackPortfolioContent: PortfolioContent = {
     social_x: null,
     visual_glow_strength: 0.75,
     visual_grain_opacity: 0.14,
+    is_active: true,
+    user_id: null,
   },
   skills: [
     {
@@ -42,6 +48,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       name: "TypeScript Architecture",
       description: "Strictly typed domain modeling across app and data layers.",
       position: 1,
+      display_order: 1,
+      is_active: true,
+      user_id: null,
     },
     {
       id: "skill-2",
@@ -50,6 +59,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       name: "UI Motion Systems",
       description: "Framer Motion choreography tuned for performance and accessibility.",
       position: 2,
+      display_order: 2,
+      is_active: true,
+      user_id: null,
     },
     {
       id: "skill-3",
@@ -58,6 +70,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       name: "Supabase + Postgres",
       description: "Typed queries, auth controls, and operational observability.",
       position: 3,
+      display_order: 3,
+      is_active: true,
+      user_id: null,
     },
   ],
   experience: [
@@ -73,6 +88,8 @@ export const fallbackPortfolioContent: PortfolioContent = {
       end_date: null,
       summary: "Leading platform modernization and frontend performance initiatives across customer-critical workflows.",
       position: 1,
+      is_active: true,
+      user_id: null,
     },
   ],
   education: [
@@ -88,6 +105,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       end_date: "2020-05-15",
       summary: "Focused on distributed systems and human-computer interaction.",
       position: 1,
+      display_order: 1,
+      is_active: true,
+      user_id: null,
     },
   ],
   projects: [
@@ -104,6 +124,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       project_url: "https://example.com/product",
       repo_url: "https://github.com",
       position: 1,
+      display_order: 1,
+      is_active: true,
+      user_id: null,
     },
   ],
   publications: [
@@ -117,6 +140,8 @@ export const fallbackPortfolioContent: PortfolioContent = {
       published_on: "2025-08-01",
       url: "https://example.com/article",
       position: 1,
+      is_active: true,
+      user_id: null,
     },
   ],
   certifications: [
@@ -129,6 +154,9 @@ export const fallbackPortfolioContent: PortfolioContent = {
       issued_on: "2024-11-15",
       credential_url: "https://example.com/cert",
       position: 1,
+      display_order: 1,
+      is_active: true,
+      user_id: null,
     },
   ],
 };

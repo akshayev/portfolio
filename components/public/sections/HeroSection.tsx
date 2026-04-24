@@ -49,16 +49,31 @@ export function HeroSection({ hero, settings }: HeroSectionProps) {
 
         <ScaleIn>
           <SurfaceCard className="h-full p-0">
-            <div className="relative flex h-full min-h-56 flex-col justify-between gap-5 overflow-hidden rounded-2xl p-6">
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(245,158,11,0.2),transparent_50%,rgba(56,189,248,0.12))]" />
-              <p className="relative text-xs uppercase tracking-[0.26em] text-amber-300/85">Currently focused</p>
-              <ul className="relative space-y-3 text-sm text-zinc-200">
-                <li>Design systems with motion primitives</li>
-                <li>Typed data access and domain-safe APIs</li>
-                <li>Production observability and resilience</li>
-              </ul>
-              <p className="relative text-xs text-zinc-400">{settings?.location ?? "Open to remote and hybrid roles"}</p>
-            </div>
+            {hero?.portrait_url ? (
+              <div className="relative h-full min-h-56 w-full overflow-hidden rounded-2xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={hero.portrait_url} 
+                  alt="Portrait" 
+                  className="absolute inset-0 h-full w-full object-cover" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-transparent to-transparent" />
+                <p className="absolute bottom-6 left-6 right-6 text-xs text-zinc-300">
+                  {settings?.location ?? "Open to remote and hybrid roles"}
+                </p>
+              </div>
+            ) : (
+              <div className="relative flex h-full min-h-56 flex-col justify-between gap-5 overflow-hidden rounded-2xl p-6">
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(245,158,11,0.2),transparent_50%,rgba(56,189,248,0.12))]" />
+                <p className="relative text-xs uppercase tracking-[0.26em] text-amber-300/85">Currently focused</p>
+                <ul className="relative space-y-3 text-sm text-zinc-200">
+                  <li>Design systems with motion primitives</li>
+                  <li>Typed data access and domain-safe APIs</li>
+                  <li>Production observability and resilience</li>
+                </ul>
+                <p className="relative text-xs text-zinc-400">{settings?.location ?? "Open to remote and hybrid roles"}</p>
+              </div>
+            )}
           </SurfaceCard>
         </ScaleIn>
       </div>

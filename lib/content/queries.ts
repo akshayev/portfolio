@@ -30,10 +30,11 @@ function throwQueryError(scope: string, error: QueryError): never {
   throw new Error(`[${scope}] ${error.message}${suffix}`);
 }
 
-async function fetchHero(client: ContentClient): Promise<Tables<"hero"> | null> {
+async function fetchHero(client: ContentClient, userId: string): Promise<Tables<"hero"> | null> {
   const { data, error } = await client
     .from("hero")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(1);
@@ -45,10 +46,11 @@ async function fetchHero(client: ContentClient): Promise<Tables<"hero"> | null> 
   return (data?.[0] ?? null) as Tables<"hero"> | null;
 }
 
-async function fetchAbout(client: ContentClient): Promise<Tables<"about"> | null> {
+async function fetchAbout(client: ContentClient, userId: string): Promise<Tables<"about"> | null> {
   const { data, error } = await client
     .from("about")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(1);
@@ -60,10 +62,11 @@ async function fetchAbout(client: ContentClient): Promise<Tables<"about"> | null
   return (data?.[0] ?? null) as Tables<"about"> | null;
 }
 
-async function fetchSettings(client: ContentClient): Promise<Tables<"settings"> | null> {
+async function fetchSettings(client: ContentClient, userId: string): Promise<Tables<"settings"> | null> {
   const { data, error } = await client
     .from("settings")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(1);
@@ -75,10 +78,11 @@ async function fetchSettings(client: ContentClient): Promise<Tables<"settings"> 
   return (data?.[0] ?? null) as Tables<"settings"> | null;
 }
 
-async function fetchSkills(client: ContentClient): Promise<Tables<"skills">[]> {
+async function fetchSkills(client: ContentClient, userId: string): Promise<Tables<"skills">[]> {
   const { data, error } = await client
     .from("skills")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -90,10 +94,11 @@ async function fetchSkills(client: ContentClient): Promise<Tables<"skills">[]> {
   return (data ?? []) as Tables<"skills">[];
 }
 
-async function fetchExperience(client: ContentClient): Promise<Tables<"experience">[]> {
+async function fetchExperience(client: ContentClient, userId: string): Promise<Tables<"experience">[]> {
   const { data, error } = await client
     .from("experience")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -105,10 +110,11 @@ async function fetchExperience(client: ContentClient): Promise<Tables<"experienc
   return (data ?? []) as Tables<"experience">[];
 }
 
-async function fetchEducation(client: ContentClient): Promise<Tables<"education">[]> {
+async function fetchEducation(client: ContentClient, userId: string): Promise<Tables<"education">[]> {
   const { data, error } = await client
     .from("education")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -120,10 +126,11 @@ async function fetchEducation(client: ContentClient): Promise<Tables<"education"
   return (data ?? []) as Tables<"education">[];
 }
 
-async function fetchProjects(client: ContentClient): Promise<Tables<"projects">[]> {
+async function fetchProjects(client: ContentClient, userId: string): Promise<Tables<"projects">[]> {
   const { data, error } = await client
     .from("projects")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -135,10 +142,11 @@ async function fetchProjects(client: ContentClient): Promise<Tables<"projects">[
   return (data ?? []) as Tables<"projects">[];
 }
 
-async function fetchPublications(client: ContentClient): Promise<Tables<"publications">[]> {
+async function fetchPublications(client: ContentClient, userId: string): Promise<Tables<"publications">[]> {
   const { data, error } = await client
     .from("publications")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -150,10 +158,11 @@ async function fetchPublications(client: ContentClient): Promise<Tables<"publica
   return (data ?? []) as Tables<"publications">[];
 }
 
-async function fetchCertifications(client: ContentClient): Promise<Tables<"certifications">[]> {
+async function fetchCertifications(client: ContentClient, userId: string): Promise<Tables<"certifications">[]> {
   const { data, error } = await client
     .from("certifications")
     .select("*")
+    .eq("user_id", userId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -220,7 +229,7 @@ function normalizeSettings(settings: Tables<"settings"> | null): SettingsContent
   };
 }
 
-export async function getPortfolioContent(): Promise<PortfolioContent> {
+export async function getPortfolioContent(userId: string): Promise<PortfolioContent> {
   const client = await createServerSupabaseClient();
 
   if (!client) {
@@ -230,15 +239,15 @@ export async function getPortfolioContent(): Promise<PortfolioContent> {
   try {
     const [hero, about, settings, skills, experience, education, projects, publications, certifications] =
       await Promise.all([
-        fetchHero(client),
-        fetchAbout(client),
-        fetchSettings(client),
-        fetchSkills(client),
-        fetchExperience(client),
-        fetchEducation(client),
-        fetchProjects(client),
-        fetchPublications(client),
-        fetchCertifications(client),
+        fetchHero(client, userId),
+        fetchAbout(client, userId),
+        fetchSettings(client, userId),
+        fetchSkills(client, userId),
+        fetchExperience(client, userId),
+        fetchEducation(client, userId),
+        fetchProjects(client, userId),
+        fetchPublications(client, userId),
+        fetchCertifications(client, userId),
       ]);
 
     return {

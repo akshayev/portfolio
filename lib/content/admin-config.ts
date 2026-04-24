@@ -19,7 +19,8 @@ export type AdminFieldType =
   | "number"
   | "date"
   | "checkbox"
-  | "string-array";
+  | "string-array"
+  | "image";
 
 export type AdminFieldDefinition = {
   key: string;
@@ -45,7 +46,7 @@ export const adminTableConfig: Record<AdminTableName, AdminTableConfig> = {
       { key: "subheadline", label: "Subheadline", type: "textarea", required: true },
       { key: "cta_label", label: "CTA Label", type: "text", required: true },
       { key: "cta_url", label: "CTA URL", type: "url", required: true },
-      { key: "portrait_url", label: "Portrait URL", type: "url" },
+      { key: "portrait_url", label: "Portrait Image", type: "image" },
     ],
     createDefaults: {
       headline: "",
